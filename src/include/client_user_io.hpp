@@ -10,6 +10,7 @@ typedef struct{
 	std::vector<std::string> arg;
 }UserLine;
 
-bool try_to_stdin(UserLine &line);
+//bool try_to_stdin(UserLine &line);
+bool to_stdin(UserLine &line);
 
 #endif

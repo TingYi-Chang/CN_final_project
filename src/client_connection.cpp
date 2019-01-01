@@ -41,6 +41,23 @@ Connection::~Connection(){
 }
 */
 
+void Connection::auto_reconnect(){
+	std::cout << "Warning: connection lost, trying to reconnect.  \r" << std::flush;
+	int animation = 0;
+	while(!try_to_reconnect()){
+		animation ++;
+		if(animation == 20)
+			std::cout << "Warning: connection lost, trying to reconnect.. \r" << std::flush;
+		else if(animation == 40)
+			std::cout << "Warning: connection lost, trying to reconnect...\r" << std::flush;
+		else if(animation >= 60){
+			std::cout << "\rWarning: connection lost, trying to reconnect.  \r" << std::flush;
+			animation = 0;
+		}
+	}
+	std::cout << std::endl;
+}
+
 bool Connection::try_to_reconnect(){
 	if(_server_info == NULL){
 		std::cerr << "Warning: No address infomation of server." << std::endl;
@@ -60,7 +77,7 @@ bool Connection::try_to_reconnect(){
 	return false;
 }
 
-bool Connection::try_to_send(AppHeader &header, std::string &data){
+bool Connection::try_to_send(int op, std::string &data){
 	fd_set wfds;
 	FD_ZERO(&wfds);
 	FD_SET(_sockfd, &wfds);
@@ -68,10 +85,10 @@ bool Connection::try_to_send(AppHeader &header, std::string &data){
 	if(!FD_ISSET(_sockfd, &wfds))
 		return false;
 	else{
-		int buf_len = 2 * sizeof(int) + data.size() + 5;
+		int buf_len = 2 * sizeof(int) + data.size();
 		char *buf = (char *)malloc(buf_len);
 		memset(buf, 0, buf_len);
-		int tmp_op = htonl(header.op), tmp_data_len = htonl(header.data_len);
+		int tmp_op = htonl(op), tmp_data_len = htonl(data.size());
 		memcpy(buf, &tmp_op, 4);
 		memcpy(buf+4, &tmp_data_len, 4);
 		memcpy(buf+8, data.c_str(), data.size());
@@ -82,7 +99,7 @@ bool Connection::try_to_send(AppHeader &header, std::string &data){
 	return true;
 }
 
-bool Connection::try_to_recv(AppHeader &header, std::string &data){
+bool Connection::try_to_recv(int &op, std::string &data){
 	fd_set rfds;
 	FD_ZERO(&rfds);
 	FD_SET(_sockfd, &rfds);
@@ -100,12 +117,14 @@ bool Connection::try_to_recv(AppHeader &header, std::string &data){
 			_is_connected = false;
 			return false;
 		}
-		memcpy(&header.op, buf, 4);
-		memcpy(&header.data_len, buf+4, 4);
-		header.op = ntohl(header.op);
-		header.data_len = ntohl(header.data_len);
-		char *buf2 = (char *)malloc(header.data_len);
-		ret = recv(_sockfd, buf2, header.data_len, 0);
+		int tmp_op, tmp_data_len;
+		memcpy(&tmp_op, buf, 4);
+		memcpy(&tmp_data_len, buf+4, 4);
+		op = ntohl(tmp_op);
+		tmp_data_len = ntohl(tmp_data_len);
+		char *buf2 = (char *)malloc(tmp_data_len+1);
+		memset(buf2, 0, tmp_data_len+1);
+		ret = recv(_sockfd, buf2, tmp_data_len, 0);
 		if(ret == -1) {
 			free(buf2);
 			return false;
@@ -117,9 +136,57 @@ bool Connection::try_to_recv(AppHeader &header, std::string &data){
 			free(buf2);
 			return false;
 		}
-		data = std::string(buf2, header.data_len);
+		data = std::string(buf2, tmp_data_len+1);
 		free(buf2);
 	}
 	return true;
 }
 
+bool Connection::to_send(int op, std::string &data){
+	int buf_len = 2 * sizeof(int) + data.size();
+	char *buf = (char *)malloc(buf_len);
+	memset(buf, 0, buf_len);
+	int tmp_op = htonl(op), tmp_data_len = htonl(data.size());
+	memcpy(buf, &tmp_op, 4);
+	memcpy(buf+4, &tmp_data_len, 4);
+	memcpy(buf+8, data.c_str(), data.size());
+	int ret = send(_sockfd, buf, buf_len, 0);
+	free(buf);
+	if(ret == -1) return false;
+	return true;
+}
+
+bool Connection::to_recv(int &op, std::string &data){
+	char buf[16];
+	int ret = recv(_sockfd, buf, 8, 0);
+	if(ret == -1)
+		return false;
+	else if (ret == 0){
+		close(_sockfd);
+		_sockfd = -1;
+		_is_connected = false;
+		return false;
+	}
+	int tmp_op, tmp_data_len;
+	memcpy(&tmp_op, buf, 4);
+	memcpy(&tmp_data_len, buf+4, 4);
+	op = ntohl(tmp_op);
+	tmp_data_len = ntohl(tmp_data_len);
+	char *buf2 = (char *)malloc(tmp_data_len+1);
+	memset(buf2, 0, tmp_data_len+1);
+	ret = recv(_sockfd, buf2, tmp_data_len, 0);
+	if(ret == -1) {
+		free(buf2);
+		return false;
+	}
+	else if (ret == 0){
+		close(_sockfd);
+		_sockfd = -1;
+		_is_connected = false;
+		free(buf2);
+		return false;
+	}
+	data = std::string(buf2, tmp_data_len+1);
+	free(buf2);
+	return true;
+}

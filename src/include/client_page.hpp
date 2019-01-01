@@ -6,6 +6,7 @@
 
 #define PAGE_EXIT 0
 #define PAGE_LOGIN 1
+#define PAGE_SIGNUP 2
 
 int run_page(int curr_page, Connection &connection);
 
@@ -22,6 +23,7 @@ private:
 	Connection _connection;
 	void _run_page_exit();
 	void _run_page_login();
+	void _run_page_signup();
 };
 
 #endif

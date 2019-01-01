@@ -4,6 +4,7 @@
 #include <string>
 #include <stdlib.h>
 #include <fstream>
+#include <sstream>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -12,6 +13,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include "common_app_protocol.hpp"
 
 
 #define MAX_CLIENT 1024
@@ -27,71 +29,135 @@ typedef struct{
 }User_log;
 
 int Recv_Mes(User_log client_log){
-	char input[STRING_MAX];
-	memset(input,'\0',sizeof(input));
+	int op, data_len;
 	//client disconnected
-	if (recv(client_log.fd,input,sizeof(input),0) <= 0)
+	if (recv(client_log.fd, &op, sizeof(int),0) <= 0)
+		return -1;
+	if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0)
+		return -1;
+	op = ntohl(op);
+	data_len = ntohl(data_len);
+
+	char input[STRING_MAX];
+	memset(input,'\0', sizeof(input));
+
+	if (recv(client_log.fd, input, data_len, 0) <= 0)
 		return -1;
 	string message = input;
 
 	//login
 	if (client_log.status == 'L'){
-		if (strcmp(input,"reg") == 0){
+		if (op == APP_SIGNUP){
 			client_log.status = 'R';
+			int tmpOp = APP_SIGNUP, tmpData_len = 7;
+			tmpOp = htonl(tmpOp);
+			tmpData_len = htonl(tmpData_len);
+			send (client_log.fd,&tmpOp,sizeof(int),0);
+			send (client_log.fd,&tmpData_len,sizeof(int),0);
 			send (client_log.fd,"Reg ID:",7,0);
 			return 1;
 		}
-		//check ID
-		fstream file;
-		file.open(input,ios::in);
-		if (!file){
-			send (client_log.fd,"User doesn't exist.",19,0);
-			return 0;
-		}
-		//check password
-		memset(input,'\0',sizeof(input));
-		if (recv(client_log.fd,input,sizeof(input),0) <= 0)
-			return -1;
-		char buffer [STRING_MAX];
-		char password [STRING_MAX];
-		file.getline(buffer,sizeof(buffer),' ');
-		if (strcmp(buffer,"hash:") != 0){
-			printf ("ERROR, buffer = %s\n",buffer);
-			return -2;
-		}
-		file.getline(password,sizeof(password),' ');
-		if (strcmp(input,password) != 0){
-			send(client_log.fd,"Wrong Password, please login again.",35,0);
-			return 0;
+		else if(op == APP_LOGIN){
+			//check ID
+			fstream file;
+			file.open(input,ios::in);
+			if (!file){
+				int tmpOp = APP_ERROR, tmpData_len = 19;
+				tmpOp = htonl(tmpOp);
+				tmpData_len = htonl(tmpData_len);
+				send (client_log.fd,&tmpOp,sizeof(int),0);
+				send (client_log.fd,&tmpData_len,sizeof(int),0);
+				send (client_log.fd,"User doesn't exist.",19,0);
+				return 0;
+			}
+			//check password
+			if (recv(client_log.fd, &op, sizeof(int),0) <= 0)
+				return -1;
+			if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0)
+				return -1;
+			op = ntohl(op);
+			data_len = ntohl(data_len);
+			memset(input,'\0',sizeof(input));
+			if (recv(client_log.fd,input,data_len,0) <= 0)
+				return -1;
+			if(op == APP_LOGIN){
+				char buffer [STRING_MAX];
+				char password [STRING_MAX];
+				file.getline(buffer,sizeof(buffer),' ');
+				if (strcmp(buffer,"hash:") != 0){
+					printf ("ERROR, buffer = %s\n",buffer);
+					return -2;
+				}
+				file.getline(password,sizeof(password),' ');
+				if (strcmp(input,password) != 0){
+					int tmpOp = APP_ERROR, tmpData_len = 35;
+					tmpOp = htonl(tmpOp);
+					tmpData_len = htonl(tmpData_len);
+					send (client_log.fd,&tmpOp,sizeof(int),0);
+					send (client_log.fd,&tmpData_len,sizeof(int),0);
+					send(client_log.fd,"Wrong Password, please login again.",35,0);
+					return 0;
+				}
+				//Login success???
+			}
 		}
 	}
 	//Login end
 	//reg
 	else if (client_log.status == 'R'){
-		fstream file;
-		file.open(input,ios::in);
-		if (file.is_open() == 1){
-			send(client_log.fd,"ID already exist.",17,0);
-			file.close();
-			return 0;
-		}
-		else if (!file.is_open()){
-			file.open(input,ios::out);
-			send(client_log.fd,"Please enter password",21,0);
-			memset(input,'\0',sizeof(input));
-			if (recv(client_log.fd,input,sizeof(input),0) <= 0){
+		if(op == APP_SIGNUP){
+			fstream file;
+			file.open(input,ios::in);
+			if (file.is_open() == 1){
+				int tmpOp = APP_ERROR, tmpData_len = 17;
+				tmpOp = htonl(tmpOp);
+				tmpData_len = htonl(tmpData_len);
+				send (client_log.fd,&tmpOp,sizeof(int),0);
+				send (client_log.fd,&tmpData_len,sizeof(int),0);
+				send(client_log.fd,"ID already exist.",17,0);
 				file.close();
-				return -1;
+				return 0;
 			}
-			file.write("hash: ",6);
-			file.write(input,strlen(input));
-			send(client_log.fd,"Reg success!",12,0);
-			client_log.status = 'L';
-			return 1;
+			else if (!file.is_open()){
+				file.open(input,ios::out);
+				int tmpOp = APP_SIGNUP, tmpData_len = 21;
+				tmpOp = htonl(tmpOp);
+				tmpData_len = htonl(tmpData_len);
+				send (client_log.fd,&tmpOp,sizeof(int),0);
+				send (client_log.fd,&tmpData_len,sizeof(int),0);
+				send(client_log.fd,"Please enter password",21,0);
+
+				if (recv(client_log.fd, &op, sizeof(int),0) <= 0)
+					return -1;
+				if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0)
+					return -1;
+				op = ntohl(op);
+				data_len = ntohl(data_len);
+				memset(input,'\0',sizeof(input));
+				if (recv(client_log.fd,input,data_len,0) <= 0)
+					return -1;
+				if(op == APP_SIGNUP){
+					file.write("hash: ",6);
+					file.write(input,strlen(input));
+					int tmpOp = APP_SIGNUP, tmpData_len = 12;
+					tmpOp = htonl(tmpOp);
+					tmpData_len = htonl(tmpData_len);
+					send (client_log.fd,&tmpOp,sizeof(int),0);
+					send (client_log.fd,&tmpData_len,sizeof(int),0);
+					send(client_log.fd,"Reg success!",12,0);
+					client_log.status = 'L';
+					return 1;
+				}
+			}
 		}
 	}
 	//Reg end
 	else {
+		int tmpOp = APP_ERROR, tmpData_len = 14;
+		tmpOp = htonl(tmpOp);
+		tmpData_len = htonl(tmpData_len);
+		send (client_log.fd,&tmpOp,sizeof(int),0);
+		send (client_log.fd,&tmpData_len,sizeof(int),0);
 		send (client_log.fd,"ERROR message.",14,0);
 		printf ("ERROR message: %s\n",input);
 		return -2;
@@ -119,11 +185,11 @@ int main(int argc, char *argv[]){
 	info.sin_port = htons(port);
 	
 	//bind
-	if (bind(server_fd, (struct sockaddr *)&info, sizeof(info)) < 0){
+	if (::bind(server_fd, (struct sockaddr *)&info, sizeof(info)) < 0){
 		perror("bind failed");   
 		exit(0);
 	}
-	
+
 	if (listen(server_fd,MAX_CLIENT) < 0){
 		perror("listen failed");
 		exit(0);
@@ -186,5 +252,6 @@ int main(int argc, char *argv[]){
 			}
 		}
 	}
+
 	return 0;
 }
