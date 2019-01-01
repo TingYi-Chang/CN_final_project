@@ -24,30 +24,40 @@ void Page::run_page(){
 
 void Page::_run_page_exit(){
 	_finish = true;
+	std::cout << "Bye bye." << std::endl;
 	return;
 }
 
 void Page::_run_page_login(){
-	std::cout	<< "################################" << std::endl;
-				<< "#            welcome           #" << std::endl;
-				<< "# \\signup : register.          #" << std::endl;
-				<< "# \\login : log in.             #" << std::endl;
+	std::cout	<< "################################" << std::endl
+				<< "#            welcome           #" << std::endl
+				<< "# \\signup : register.          #" << std::endl
+				<< "# \\login : log in.             #" << std::endl
 				<< "################################" << std::endl;
 	UserLine line;
-	while(!try_to_stdin(line)){
-		if(!line.is_command || line.topic != "\\signup" || line.topic != "\\login"){
+	bool is_done = false;
+	while(!is_done){
+		while(!try_to_stdin(line));
+		if(line.is_command && line.topic == "\\signup"){
+			//send signup!!!!!
+			std::cout << "send signup." << std::endl;
+			is_done = true;
+		}
+		else if(line.is_command && line.topic == "\\login"){
+			//send login!!!
+			std::cout << "send login." << std::endl;
+			is_done = true;
+		}
+		else if(line.is_command && line.topic == "\\quit"){
+			std::cout << "quit." << std::endl;
+			_state = PAGE_EXIT;
+			is_done = true;
+		}
+		else{
 			std::cout << "unknown command, please try again." << std::endl;
 		}
-		else
-			break;
 	}
-	if(line.topic != "\\signup"){
-		//send signup!!!!!
-	}
-	else if(line.topic != "\\login"){
-		//send login!!!
-
-	}
+	
 
 	return;
 }

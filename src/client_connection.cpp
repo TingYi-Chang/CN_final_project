@@ -33,10 +33,13 @@ Connection::Connection(std::string host_name, int port)
 	}
 }
 
+/*
 Connection::~Connection(){
-	freeaddrinfo(_server_info);
+	if(_server_info != NULL)
+		freeaddrinfo(_server_info);
 	close(_sockfd);
 }
+*/
 
 bool Connection::try_to_reconnect(){
 	if(_server_info == NULL){

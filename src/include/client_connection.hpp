@@ -15,7 +15,7 @@ public:
 		, _sockfd(-1)
 		{}
 	Connection(std::string host_name, int port);
-	~Connection();
+	//~Connection();
 	bool try_to_reconnect();
 	bool try_to_send(AppHeader &header, std::string &data);
 	bool try_to_recv(AppHeader &header, std::string &data);
