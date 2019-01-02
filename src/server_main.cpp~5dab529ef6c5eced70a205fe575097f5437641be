@@ -1,6 +1,7 @@
 #include <functional>
 #include <iostream>
 #include <stdio.h>
+#include <cstdio>
 #include <string.h>
 #include <string>
 #include <stdlib.h>
@@ -25,8 +26,9 @@ using namespace std;
 
 typedef struct{
 	int  fd = 0;
-	char id[ID_MAX] = "\0";
+	string id = "\0";
 	char status = 'L';//L = login, R = register, M = main, C = chat, F = file
+	string dest_id = "\0";
 }User_log;
 
 int server_send(int fd, int op, int data_len, char message[]){
@@ -48,10 +50,6 @@ int Recv_Mes(User_log client_log){
 	op = ntohl(op);
 	data_len = ntohl(data_len);
 
-////////
-	printf("op : %d, data_len: %d\n", op, data_len);
-	printf("stat: %c\n", client_log.status);
-
 	char input[STRING_MAX];
 	memset(input,'\0', sizeof(input));
 
@@ -63,8 +61,6 @@ int Recv_Mes(User_log client_log){
 	if (client_log.status == 'L'){
 		if (op == APP_SIGNUP){
 			client_log.status = 'R';
-//////
-	printf("YOYO\n");
 			server_send(client_log.fd, APP_SIGNUP, 11, "Sign up ID:");
 			return 1;
 		}
@@ -76,36 +72,45 @@ int Recv_Mes(User_log client_log){
 				server_send(client_log.fd, APP_ERROR, 19, "User doesn't exist.");
 				return 0;
 			}
-			else if (file){
+			else if (file)
 				server_send(client_log.fd, APP_LOGIN, 22,"Please enter password.");
-				return 0;
-			}
+			string tmpid = input;
 			//check password
-			if (recv(client_log.fd, &op, sizeof(int),0) <= 0)
+			if (recv(client_log.fd, &op, sizeof(int),0) <= 0){
+				file.close();
 				return -1;
-			if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0)
+			}
+			if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0){
+				file.close();
 				return -1;
+			}
 			op = ntohl(op);
 			data_len = ntohl(data_len);
 			memset(input,'\0',sizeof(input));
-			if (recv(client_log.fd,input,data_len,0) <= 0)
+			if (recv(client_log.fd,input,data_len,0) <= 0){
+				file.close();
 				return -1;
+			}
 			if(op == APP_LOGIN){
 				char buffer [STRING_MAX];
 				char password [STRING_MAX];
 				file.getline(buffer,sizeof(buffer),' ');
 				if (strcmp(buffer,"hash:") != 0){
 					printf ("ERROR, buffer = %s\n",buffer);
+					file.close();
 					return -2;
 				}
 				file.getline(password,sizeof(password),' ');
 				if (strcmp(input,password) != 0){
 					server_send(client_log.fd, APP_ERROR, 35,"Wrong Password, please login again.");
+					file.close();
 					return 0;
 				}
 				if (strcmp(input,password) == 0){
 					server_send(client_log.fd, APP_LOGIN, 8,"Welcome.");
 					client_log.status = 'M';
+					client_log.id = tmpid;
+					file.close();
 					return 0;
 				}
 			}
@@ -116,64 +121,79 @@ int Recv_Mes(User_log client_log){
 	else if (client_log.status == 'R'){
 		if(op == APP_SIGNUP){
 			fstream file;
-			file.open(input,ios::in);
+			file.open(input,ios::in);//path should be added
 			if (file.is_open() == 1){
 				server_send(client_log.fd, APP_ERROR, 17,"ID already exist.");
 				file.close();
 				return 0;
 			}
 			else if (!file.is_open()){
-				file.open(input,ios::out);
+				char path[STRING_MAX];
+				strcpy(path,input);
+				file.open(path,ios::out);
 				server_send(client_log.fd, APP_SIGNUP, 21,"Please enter password");
 				
-				if (recv(client_log.fd, &op, sizeof(int),0) <= 0)
+				if (recv(client_log.fd, &op, sizeof(int),0) <= 0){
+					file.close();
+					remove(path);
 					return -1;
-				if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0)
+				}
+				if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0){
+					file.close();
+					remove(path);
 					return -1;
+				}
 				op = ntohl(op);
 				data_len = ntohl(data_len);
 				memset(input,'\0',sizeof(input));
-				if (recv(client_log.fd,input,data_len,0) <= 0)
+				if (recv(client_log.fd,input,data_len,0) <= 0){
+					file.close();
+					remove(path);
 					return -1;
+				}
 				if(op == APP_SIGNUP){
 					file.write("hash: ",6);
 					file.write(input,strlen(input));
 					server_send(client_log.fd, APP_SIGNUP, 16,"Sign up success!");
 					client_log.status = 'L';
+					file.close();
 					return 1;
 				}
 			}
 		}
 	}
 	//Reg end
-	//chat
-	/*
+	//Main
 	else if (client_log.status == 'M'){
-		if (op == APP_CHAT){//不知道是什麼
+		if (op == APP_CHAT){
 			fstream file;
 			file.open(input,ios::in);
-			if (!file.isopen()){
-				int tmpOp = APP_ERROR, tmpData_len = 19;
-				tmpOp = htonl(tmpOp);
-				tmpData_len = htonl(tmpData_len);
-				send(client_log.fd,&tmpOp,sizeof(int),0);
-				send(client_log.fd,&tmpData_len,sizeof(int),0);
-				send(client_log.fd,"User doesn't exist.",19,0);
-			}
+			if (!file.is_open())
+				server_send(client_log.fd, APP_ERROR, 19,"User doesn't exist.");
 			else {
 				file.close();
-<<<<<<< HEAD
-				ifstream fin;
-=======
->>>>>>> 9e0dcf9af72e8c2162c4fb1d4b0ffb8071b1e629
+				iftream fin;
 				string path = "../message/";
 				path = path + client_log.id + "/" + message;
-				file.open(path,ios::in);
-				
+				fin.open(path,ifstream::in);
+				fin.seekg(0,ios::end);
+				long long data_len = fin.tellg();
+				char history[data_len];
+				fin.read(history,data_len);
+				server_send(client_log.fd, APP_CHAT, data_len, history);
+				client_log.status = 'C';
+				client_log.dest_id = input;
+				fin.close();
+				return 0;
 			}
 		}
 	}
-	//chat end
+	//Main end
+	//Chat
+	else if (client_log.status == 'C'){
+		
+	}
+	//Chat end
 	else {
 		int tmpOp = APP_ERROR, tmpData_len = 14;
 		tmpOp = htonl(tmpOp);
@@ -184,7 +204,6 @@ int Recv_Mes(User_log client_log){
 		printf ("ERROR message: %s\n",input);
 		return -2;
 	}
-	*/
 	//printf ("recv from[%s:%d]\n",inet_ntoa(client_info[i].sin_addr),ntohs(client_info[i].sin_port));
 	//send(client_log[i].fd,message,strlen(message),0);
 	return 0;
@@ -257,7 +276,7 @@ int main(int argc, char *argv[]){
 			FD_SET(client_log[client_num].fd,&master);
 			maxfd = max(maxfd,client_log[client_num].fd);
 			//set client log
-			memset(client_log[client_num].id,'\0',ID_MAX);
+			client_log[client_num].id = "\0";
 			client_log[client_num].status = 'L';
 		}
 
