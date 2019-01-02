@@ -259,7 +259,9 @@ int main(int argc, char *argv[]){
 		printf ("looping\n");
 		FD_ZERO(&rdfds);
 		memcpy(&rdfds, &master, sizeof(rdfds));
-		select (maxfd+1,&rdfds,NULL,NULL,&tv);
+		struct timeval tmp_tv;
+		memcpy(&tmp_tv, &tv, sizeof(tmp_tv));
+		select (maxfd+1,&rdfds,NULL,NULL,&tmp_tv);
 		
 		//new client
 		if (FD_ISSET(server_fd,&rdfds)){

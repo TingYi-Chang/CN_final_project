@@ -152,9 +152,9 @@ void Page::_run_page_login(){
 
 void Page::_run_page_signup(){
 	int resOp;
-	std::string resData, empty_string;
+	std::string resData, want = "I want to sign up.";
 	UserLine line;
-	if(!_auto_send(APP_SIGNUP, empty_string)) return;
+	if(!_auto_send(APP_SIGNUP, want)) return;
 	if(!_auto_recv(resOp, resData)) return;
 	if(resOp == APP_SIGNUP){
 		std::cout << "[Server]" << resData << std::endl;
