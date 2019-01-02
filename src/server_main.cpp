@@ -31,6 +31,9 @@ typedef struct{
 	string dest_id = "\0";
 }User_log;
 
+User_log 	client_log[MAX_CLIENT];
+
+
 int server_send(int fd, int op, int data_len, char message[]){
 	op = htonl(op);	
 	int tmp_data_len = htonl(data_len);
@@ -40,12 +43,12 @@ int server_send(int fd, int op, int data_len, char message[]){
 	return 0;
 }
 
-int Recv_Mes(User_log client_log){
+int Recv_Mes(int client_num){
 	int op, data_len;
 	//client disconnected
-	if (recv(client_log.fd, &op, sizeof(int),0) <= 0)
+	if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0)
 		return -1;
-	if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0)
+	if (recv(client_log[client_num].fd, &data_len, sizeof(int),0) <= 0)
 		return -1;
 	op = ntohl(op);
 	data_len = ntohl(data_len);
@@ -53,15 +56,15 @@ int Recv_Mes(User_log client_log){
 	char input[STRING_MAX];
 	memset(input,'\0', sizeof(input));
 
-	if (recv(client_log.fd, input, data_len, 0) <= 0)
+	if (recv(client_log[client_num].fd, input, data_len, 0) <= 0)
 		return -1;
 	string message = input;
 
 	//login
-	if (client_log.status == 'L'){
+	if (client_log[client_num].status == 'L'){
 		if (op == APP_SIGNUP){
-			client_log.status = 'R';
-			server_send(client_log.fd, APP_SIGNUP, 11, "Sign up ID:");
+			client_log[client_num].status = 'R';
+			server_send(client_log[client_num].fd, APP_SIGNUP, 11, "Sign up ID:");
 			return 1;
 		}
 		else if(op == APP_LOGIN){
@@ -69,25 +72,25 @@ int Recv_Mes(User_log client_log){
 			fstream file;
 			file.open(input,ios::in);//path should be added.
 			if (!file){
-				server_send(client_log.fd, APP_ERROR, 19, "User doesn't exist.");
+				server_send(client_log[client_num].fd, APP_ERROR, 19, "User doesn't exist.");
 				return 0;
 			}
 			else if (file)
-				server_send(client_log.fd, APP_LOGIN, 22,"Please enter password.");
+				server_send(client_log[client_num].fd, APP_LOGIN, 22,"Please enter password.");
 			string tmpid = input;
 			//check password
-			if (recv(client_log.fd, &op, sizeof(int),0) <= 0){
+			if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0){
 				file.close();
 				return -1;
 			}
-			if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0){
+			if (recv(client_log[client_num].fd, &data_len, sizeof(int),0) <= 0){
 				file.close();
 				return -1;
 			}
 			op = ntohl(op);
 			data_len = ntohl(data_len);
 			memset(input,'\0',sizeof(input));
-			if (recv(client_log.fd,input,data_len,0) <= 0){
+			if (recv(client_log[client_num].fd,input,data_len,0) <= 0){
 				file.close();
 				return -1;
 			}
@@ -102,14 +105,14 @@ int Recv_Mes(User_log client_log){
 				}
 				file.getline(password,sizeof(password),' ');
 				if (strcmp(input,password) != 0){
-					server_send(client_log.fd, APP_ERROR, 35,"Wrong Password, please login again.");
+					server_send(client_log[client_num].fd, APP_ERROR, 35,"Wrong Password, please login again.");
 					file.close();
 					return 0;
 				}
 				if (strcmp(input,password) == 0){
-					server_send(client_log.fd, APP_LOGIN, 8,"Welcome.");
-					client_log.status = 'M';
-					client_log.id = tmpid;
+					server_send(client_log[client_num].fd, APP_LOGIN, 8,"Welcome.");
+					client_log[client_num].status = 'M';
+					client_log[client_num].id = tmpid;
 					file.close();
 					return 0;
 				}
@@ -118,12 +121,12 @@ int Recv_Mes(User_log client_log){
 	}
 	//Login end
 	//reg
-	else if (client_log.status == 'R'){
+	else if (client_log[client_num].status == 'R'){
 		if(op == APP_SIGNUP){
 			fstream file;
 			file.open(input,ios::in);//path should be added
 			if (file.is_open() == 1){
-				server_send(client_log.fd, APP_ERROR, 17,"ID already exist.");
+				server_send(client_log[client_num].fd, APP_ERROR, 17,"ID already exist.");
 				file.close();
 				return 0;
 			}
@@ -131,14 +134,14 @@ int Recv_Mes(User_log client_log){
 				char path[STRING_MAX];
 				strcpy(path,input);
 				file.open(path,ios::out);
-				server_send(client_log.fd, APP_SIGNUP, 21,"Please enter password");
+				server_send(client_log[client_num].fd, APP_SIGNUP, 21,"Please enter password");
 				
-				if (recv(client_log.fd, &op, sizeof(int),0) <= 0){
+				if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0){
 					file.close();
 					remove(path);
 					return -1;
 				}
-				if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0){
+				if (recv(client_log[client_num].fd, &data_len, sizeof(int),0) <= 0){
 					file.close();
 					remove(path);
 					return -1;
@@ -146,7 +149,7 @@ int Recv_Mes(User_log client_log){
 				op = ntohl(op);
 				data_len = ntohl(data_len);
 				memset(input,'\0',sizeof(input));
-				if (recv(client_log.fd,input,data_len,0) <= 0){
+				if (recv(client_log[client_num].fd,input,data_len,0) <= 0){
 					file.close();
 					remove(path);
 					return -1;
@@ -154,8 +157,8 @@ int Recv_Mes(User_log client_log){
 				if(op == APP_SIGNUP){
 					file.write("hash: ",6);
 					file.write(input,strlen(input));
-					server_send(client_log.fd, APP_SIGNUP, 16,"Sign up success!");
-					client_log.status = 'L';
+					server_send(client_log[client_num].fd, APP_SIGNUP, 16,"Sign up success!");
+					client_log[client_num].status = 'L';
 					file.close();
 					return 1;
 				}
@@ -164,25 +167,25 @@ int Recv_Mes(User_log client_log){
 	}
 	//Reg end
 	//Main
-	else if (client_log.status == 'M'){
+	else if (client_log[client_num].status == 'M'){
 		if (op == APP_CHAT){
 			fstream file;
 			file.open(input,ios::in);
 			if (!file.is_open())
-				server_send(client_log.fd, APP_ERROR, 19,"User doesn't exist.");
+				server_send(client_log[client_num].fd, APP_ERROR, 19,"User doesn't exist.");
 			else {
 				file.close();
 				ifstream fin;
 				string path = "../message/";
-				path = path + client_log.id + "/" + message;
+				path = path + client_log[client_num].id + "/" + message;
 				fin.open(path,ifstream::in);
 				fin.seekg(0,ios::end);
 				long long data_len = fin.tellg();
 				char history[data_len];
 				fin.read(history,data_len);
-				server_send(client_log.fd, APP_CHAT, data_len, history);
-				client_log.status = 'C';
-				client_log.dest_id = input;
+				server_send(client_log[client_num].fd, APP_CHAT, data_len, history);
+				client_log[client_num].status = 'C';
+				client_log[client_num].dest_id = input;
 				fin.close();
 				return 0;
 			}
@@ -190,22 +193,25 @@ int Recv_Mes(User_log client_log){
 	}
 	//Main end
 	//Chat
-	else if (client_log.status == 'C'){
-		
-	}
+	/*
+	else if (client_log[client_num].status == 'C'){
+		for (int i = 0; i < MAX_CLIENT; i++){
+			if ()
+		}
+	}*/
 	//Chat end
 	else {
 		int tmpOp = APP_ERROR, tmpData_len = 14;
 		tmpOp = htonl(tmpOp);
 		tmpData_len = htonl(tmpData_len);
-		send (client_log.fd,&tmpOp,sizeof(int),0);
-		send (client_log.fd,&tmpData_len,sizeof(int),0);
-		send (client_log.fd,"ERROR message.",14,0);
+		send (client_log[client_num].fd,&tmpOp,sizeof(int),0);
+		send (client_log[client_num].fd,&tmpData_len,sizeof(int),0);
+		send (client_log[client_num].fd,"ERROR message.",14,0);
 		printf ("ERROR message: %s\n",input);
 		return -2;
 	}
 	//printf ("recv from[%s:%d]\n",inet_ntoa(client_info[i].sin_addr),ntohs(client_info[i].sin_port));
-	//send(client_log[i].fd,message,strlen(message),0);
+	//send(client_log[client_num][i].fd,message,strlen(message),0);
 	return 0;
 }
 
@@ -248,7 +254,6 @@ int main(int argc, char *argv[]){
 	FD_SET(server_fd, &master);
 	int maxfd = server_fd;
 
-	User_log 	client_log[MAX_CLIENT];
 	int	 		fd;
 	int			client_num = 0;
 	char 		input[STRING_MAX];
@@ -285,7 +290,7 @@ int main(int argc, char *argv[]){
 		//check client
 		for (int i = 0; i < MAX_CLIENT; i++){
 			if (FD_ISSET(client_log[i].fd,&rdfds)){
-				int check = Recv_Mes(ref(client_log[i]));
+				int check = Recv_Mes(i);
 				if (check == -1){
 					FD_CLR(client_log[i].fd,&master);
 					close(client_log[i].fd);
