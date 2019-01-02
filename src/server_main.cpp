@@ -28,6 +28,15 @@ typedef struct{
 	char status = 'L';//L = login, R = register, M = main, C = chat, F = file
 }User_log;
 
+int server_send(int fd, int op, int data_len, char message[]){
+	op = htonl(op);	
+	data_len = htonl(data_len);
+	send (fd,&op,sizeof(int),0);
+	send (fd,&data_len,sizeof(int),0);
+	send (fd,message,data_len,0);
+	return 0;
+}
+
 int Recv_Mes(User_log client_log){
 	int op, data_len;
 	//client disconnected
@@ -49,25 +58,19 @@ int Recv_Mes(User_log client_log){
 	if (client_log.status == 'L'){
 		if (op == APP_SIGNUP){
 			client_log.status = 'R';
-			int tmpOp = APP_SIGNUP, tmpData_len = 7;
-			tmpOp = htonl(tmpOp);
-			tmpData_len = htonl(tmpData_len);
-			send (client_log.fd,&tmpOp,sizeof(int),0);
-			send (client_log.fd,&tmpData_len,sizeof(int),0);
-			send (client_log.fd,"Reg ID:",7,0);
+			server_send(client_log.fd, APP_SIGNUP, 11, "Sign up ID:");
 			return 1;
 		}
 		else if(op == APP_LOGIN){
 			//check ID
 			fstream file;
-			file.open(input,ios::in);
+			file.open(input,ios::in);//path should be added.
 			if (!file){
-				int tmpOp = APP_ERROR, tmpData_len = 19;
-				tmpOp = htonl(tmpOp);
-				tmpData_len = htonl(tmpData_len);
-				send (client_log.fd,&tmpOp,sizeof(int),0);
-				send (client_log.fd,&tmpData_len,sizeof(int),0);
-				send (client_log.fd,"User doesn't exist.",19,0);
+				server_send(client_log.fd, APP_ERROR, 19, "User doesn't exist.");
+				return 0;
+			}
+			else if (file){
+				server_send(client_log.fd, APP_LOGIN, 22,"Please enter password.");
 				return 0;
 			}
 			//check password
@@ -90,12 +93,11 @@ int Recv_Mes(User_log client_log){
 				}
 				file.getline(password,sizeof(password),' ');
 				if (strcmp(input,password) != 0){
-					int tmpOp = APP_ERROR, tmpData_len = 35;
-					tmpOp = htonl(tmpOp);
-					tmpData_len = htonl(tmpData_len);
-					send (client_log.fd,&tmpOp,sizeof(int),0);
-					send (client_log.fd,&tmpData_len,sizeof(int),0);
-					send(client_log.fd,"Wrong Password, please login again.",35,0);
+					server_send(client_log.fd, APP_ERROR, 35,"Wrong Password, please login again.");
+					return 0;
+				}
+				if (strcmp(input,passord) == 0){
+					server_send(client_log.fd, APP_LOGIN, 8,"Welcome.");
 					return 0;
 				}
 				//Login success???
@@ -144,7 +146,7 @@ int Recv_Mes(User_log client_log){
 					tmpData_len = htonl(tmpData_len);
 					send (client_log.fd,&tmpOp,sizeof(int),0);
 					send (client_log.fd,&tmpData_len,sizeof(int),0);
-					send(client_log.fd,"Reg success!",12,0);
+					send(client_log.fd,"Sign up success!",16,0);
 					client_log.status = 'L';
 					return 1;
 				}
@@ -152,6 +154,30 @@ int Recv_Mes(User_log client_log){
 		}
 	}
 	//Reg end
+	//chat
+	/*
+	else if (client_log.status == 'M'){
+		if (op == APP_CHAT){//不知道是什麼
+			fstream file;
+			file.open(input,ios::in);
+			if (!file.isopen()){
+				int tmpOp = APP_ERROR, tmpData_len = 19;
+				tmpOp = htonl(tmpOp);
+				tmpData_len = htonl(tmpData_len);
+				send(client_log.fd,&tmpOp,sizeof(int),0);
+				send(client_log.fd,&tmpData_len,sizeof(int),0);
+				send(client_log.fd,"User doesn't exist.",19,0);
+			}
+			else {
+				file.close();
+				string path = "../message/";
+				path = path + client_log.id + "/" + message;
+				file.open(path,ios::in);
+				
+			}
+		}
+	}
+	//chat end
 	else {
 		int tmpOp = APP_ERROR, tmpData_len = 14;
 		tmpOp = htonl(tmpOp);
@@ -162,6 +188,7 @@ int Recv_Mes(User_log client_log){
 		printf ("ERROR message: %s\n",input);
 		return -2;
 	}
+	*/
 	//printf ("recv from[%s:%d]\n",inet_ntoa(client_info[i].sin_addr),ntohs(client_info[i].sin_port));
 	//send(client_log[i].fd,message,strlen(message),0);
 	return 0;
