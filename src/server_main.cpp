@@ -172,7 +172,7 @@ int Recv_Mes(User_log client_log){
 				server_send(client_log.fd, APP_ERROR, 19,"User doesn't exist.");
 			else {
 				file.close();
-				iftream fin;
+				ifstream fin;
 				string path = "../message/";
 				path = path + client_log.id + "/" + message;
 				fin.open(path,ifstream::in);
