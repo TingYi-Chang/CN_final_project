@@ -96,11 +96,11 @@ int Recv_Mes(User_log client_log){
 					server_send(client_log.fd, APP_ERROR, 35,"Wrong Password, please login again.");
 					return 0;
 				}
-				if (strcmp(input,passord) == 0){
+				if (strcmp(input,password) == 0){
 					server_send(client_log.fd, APP_LOGIN, 8,"Welcome.");
+					client_log.status = 'M';
 					return 0;
 				}
-				//Login success???
 			}
 		}
 	}
@@ -111,24 +111,14 @@ int Recv_Mes(User_log client_log){
 			fstream file;
 			file.open(input,ios::in);
 			if (file.is_open() == 1){
-				int tmpOp = APP_ERROR, tmpData_len = 17;
-				tmpOp = htonl(tmpOp);
-				tmpData_len = htonl(tmpData_len);
-				send (client_log.fd,&tmpOp,sizeof(int),0);
-				send (client_log.fd,&tmpData_len,sizeof(int),0);
-				send(client_log.fd,"ID already exist.",17,0);
+				server_send(client_log.fd, APP_ERROR, 17,"ID already exist.");
 				file.close();
 				return 0;
 			}
 			else if (!file.is_open()){
 				file.open(input,ios::out);
-				int tmpOp = APP_SIGNUP, tmpData_len = 21;
-				tmpOp = htonl(tmpOp);
-				tmpData_len = htonl(tmpData_len);
-				send (client_log.fd,&tmpOp,sizeof(int),0);
-				send (client_log.fd,&tmpData_len,sizeof(int),0);
-				send(client_log.fd,"Please enter password",21,0);
-
+				server_send(client_log.fd, APP_SIGNUP, 21,"Please enter password");
+				
 				if (recv(client_log.fd, &op, sizeof(int),0) <= 0)
 					return -1;
 				if (recv(client_log.fd, &data_len, sizeof(int),0) <= 0)
@@ -141,12 +131,7 @@ int Recv_Mes(User_log client_log){
 				if(op == APP_SIGNUP){
 					file.write("hash: ",6);
 					file.write(input,strlen(input));
-					int tmpOp = APP_SIGNUP, tmpData_len = 12;
-					tmpOp = htonl(tmpOp);
-					tmpData_len = htonl(tmpData_len);
-					send (client_log.fd,&tmpOp,sizeof(int),0);
-					send (client_log.fd,&tmpData_len,sizeof(int),0);
-					send(client_log.fd,"Sign up success!",16,0);
+					server_send(client_log.fd, APP_SIGNUP, 16,"Sign up success!");
 					client_log.status = 'L';
 					return 1;
 				}
