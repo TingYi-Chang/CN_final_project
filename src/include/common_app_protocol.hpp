@@ -6,7 +6,7 @@
 #define APP_SIGNUP 2
 #define APP_CHAT 3
 #define APP_FILE 4
-
+/*
 typedef struct{
 	int op;
 	int data_len;
@@ -42,5 +42,5 @@ typedef struct{
 	std::string target_user;
 	std::string message;
 }ChatRes;
-
+*/
 #endif

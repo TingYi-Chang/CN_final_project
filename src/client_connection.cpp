@@ -41,24 +41,11 @@ Connection::~Connection(){
 }
 */
 
-void Connection::auto_reconnect(){
-	std::cout << "Warning: connection lost, trying to reconnect.  \r" << std::flush;
-	int animation = 0;
-	while(!try_to_reconnect()){
-		animation ++;
-		if(animation == 20)
-			std::cout << "Warning: connection lost, trying to reconnect.. \r" << std::flush;
-		else if(animation == 40)
-			std::cout << "Warning: connection lost, trying to reconnect...\r" << std::flush;
-		else if(animation >= 60){
-			std::cout << "\rWarning: connection lost, trying to reconnect.  \r" << std::flush;
-			animation = 0;
-		}
-	}
-	std::cout << std::endl;
-}
-
 bool Connection::try_to_reconnect(){
+	if(_sockfd != -1){
+		close(_sockfd);
+		_sockfd = -1;
+	}
 	if(_server_info == NULL){
 		std::cerr << "Warning: No address infomation of server." << std::endl;
 		return false;

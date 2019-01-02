@@ -16,7 +16,6 @@ public:
 		{}
 	Connection(std::string host_name, int port);
 	//~Connection();
-	void auto_reconnect();
 	bool try_to_reconnect();
 	bool try_to_send(int op, std::string &data);
 	bool try_to_recv(int &op, std::string &data);

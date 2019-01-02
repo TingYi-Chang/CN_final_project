@@ -3,13 +3,13 @@
 #include "common_app_protocol.hpp"
 #include <iostream>
 
-Page::Page(int argc, char *argv[]){
-	_config = Config(argc, argv);
-	_connection = Connection(_config.host_name(), _config.port());
-	_finish = false;
-	_state = PAGE_LOGIN;
-
-}
+Page::Page(int argc, char *argv[], UserQueue &queue)
+	: _config(argc, argv)
+	, _connection(_config.host_name(), _config.port())
+	, _finish(false)
+	, _state(PAGE_LOGIN)
+	, _queue(queue)
+{}
 
 void Page::run_page(){
 	switch(_state){
@@ -26,6 +26,49 @@ void Page::run_page(){
 	return;
 }
 
+bool Page::_auto_reconnect(){
+	std::cout << "Connection lost, trying to reconnect. Use \\cancel to stop.  " << std::flush;
+	int animation = 0;
+	UserLine line;
+	while(!_connection.try_to_reconnect()){
+		if(try_to_stdin(line, _queue) && line.is_command && line.topic == "\\cancel"){
+			std::cout 
+				<< std::endl
+				<< "Reconnection canceled." << std::endl;
+			return false;
+		}
+		animation ++;
+		if(animation == 20)
+			std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop.. " << std::flush;
+		else if(animation == 40)
+			std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop..." << std::flush;
+		else if(animation >= 60){
+			std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop.  " << std::flush;
+			animation = 0;
+		}
+	}
+	std::cout << std::endl;
+	return true;
+}
+
+bool Page::_auto_send(int op, std::string &data){
+	while(!_connection.to_send(op, data))
+		if(!_auto_reconnect()){
+			_state = PAGE_EXIT;
+			return false;
+		}
+	return true;
+}
+
+bool Page::_auto_recv(int &op, std::string &data){
+	while(!_connection.to_recv(op, data))
+		if(!_auto_reconnect()){
+			_state = PAGE_EXIT;
+			return false;
+		}
+	return true;
+}
+
 void Page::_run_page_exit(){
 	_finish = true;
 	std::cout << "Bye bye." << std::endl;
@@ -39,19 +82,20 @@ void Page::_run_page_login(){
 		<< "# please login first,               #" << std::endl
 		<< "# or use \\help to get command list. #" << std::endl
 		<< "#####################################" << std::endl
-		<< "Please enter ID" << std::endl;
+		<< "Please enter your ID:" << std::endl;
 	UserLine line;
 	bool is_done = false;
 	while(!is_done){
-		to_stdin(line);
+		to_stdin(line, _queue);
 		if(line.is_command && line.topic == "\\help"){
 			std::cout
 				<< "" << std::endl
 				<< "****** valid commands ******" << std::endl
+				<< "\\help : to get command list." << std::endl
 				<< "\\signup : to register a new username." << std::endl
 				<< "\\quit : to quit the client program." << std::endl
 				<< "****************************" << std::endl
-				<< "Please enter ID" << std::endl;
+				<< "Please enter your ID:" << std::endl;
 		}
 		else if(line.is_command && line.topic == "\\signup"){
 			_state = PAGE_SIGNUP;
@@ -63,12 +107,39 @@ void Page::_run_page_login(){
 			is_done = true;
 		}
 		else if(!line.is_command){
-			while(!_connection.to_send(APP_LOGIN, line.topic))
-				_connection.auto_reconnect();
-			//to do
+			int resOp;
+			std::string resData;
+			if(!_auto_send(APP_LOGIN, line.topic)) return;
+			if(!_auto_recv(resOp, resData)) return;
+			if(resOp == APP_LOGIN){
+				std::cout << resData << std::endl;
+				while(to_stdin(line, _queue) && line.is_command)
+					std::cout << "Invalid command." << std::endl;
+				if(!_auto_send(APP_LOGIN, line.topic)) return;
+				if(!_auto_recv(resOp, resData)) return;
+				if(resOp == APP_LOGIN){
+					std::cout << "[Server]" << resData << std::endl;
+					_state = PAGE_LOBBY;
+					is_done = true;
+				}
+				else if(resOp == APP_ERROR){
+					std::cout << "[Server]" << resData << std::endl;
+					std::cout << "Please enter your ID:" << std::endl;
+				}
+				else{
+					std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+				}
+			}
+			else if(resOp == APP_ERROR){
+				std::cout << "[Server]" << resData << std::endl;
+				std::cout << "Please enter your ID:" << std::endl;
+			}
+			else{
+				std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+			}
 		}
 		else{
-			std::cout << "unknown command, please try again." << std::endl;
+			std::cout << "Invalid command, please try again." << std::endl;
 		}
 	}
 	
@@ -77,7 +148,48 @@ void Page::_run_page_login(){
 }
 
 void Page::_run_page_signup(){
-	_finish = true;
-	std::cout << "Bye bye." << std::endl;
+	int resOp;
+	std::string resData, empty_string;
+	UserLine line;
+	if(!_auto_send(APP_SIGNUP, empty_string)) return;
+	if(!_auto_recv(resOp, resData)) return;
+	if(resOp == APP_SIGNUP){
+		std::cout << "[Server]" << resData << std::endl;
+		while(to_stdin(line, _queue) && line.is_command)
+			std::cout << "Invalid command." << std::endl;
+		if(!_auto_send(APP_SIGNUP, line.topic)) return;
+		if(!_auto_recv(resOp, resData)) return;
+		if(resOp == APP_SIGNUP){
+			std::cout << "[Server]" << resData << std::endl;
+			while(to_stdin(line, _queue) && line.is_command)
+				std::cout << "Invalid command." << std::endl;
+			if(!_auto_send(APP_SIGNUP, line.topic)) return;
+			if(!_auto_recv(resOp, resData)) return;
+			if(resOp == APP_SIGNUP){
+				std::cout << "[Server]" << resData << std::endl;
+			}
+			else if(resOp == APP_ERROR){
+				std::cout << "[Server]" << resData << std::endl;
+			}
+			else{
+				std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+			}
+		}
+		else if(resOp == APP_ERROR){
+			std::cout << "[Server]" << resData << std::endl;
+		}
+		else{
+			std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+		}
+	}
+	else{
+		std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+	}
+	_state = APP_LOGIN;
 	return;
+}
+
+void _run_page_lobby(){
+	std::cout << "Welcome to lobby, but lobby is under construction." << std::endl;
+
 }
