@@ -25,11 +25,11 @@ all: $(TARGET)
 
 client: $(CLIENTOBJ)
 	$(CP) $(CPFLAGS) $(CLIENTDIRTPL) $(CLIENTDIR)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) -o $@ $^
 
 server: $(SERVEROBJ)
 	$(CP) $(CPFLAGS) $(SERVERDIRTPL) $(SERVERDIR)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) -o $@ $^
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
