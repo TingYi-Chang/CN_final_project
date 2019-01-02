@@ -67,8 +67,6 @@ bool Page::_auto_recv(int &op, std::string &data){
 			_state = PAGE_EXIT;
 			return false;
 		}
-////////////
-	std::cout << "[YOYO]recieved" << op << " " << data << std::endl;
 	return true;
 }
 
