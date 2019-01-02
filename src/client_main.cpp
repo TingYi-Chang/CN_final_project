@@ -3,6 +3,7 @@
 #include "client_page.hpp"
 #include "client_user_io.hpp"
 #include <thread>
+#include <functional>
 
 int main(int argc, char *argv[]){
 	UserQueue queue;

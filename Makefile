@@ -5,7 +5,7 @@ SERVERDIR = server_data
 SERVERDIRTPL = $(SRCDIR)/server_template
 
 CXX = g++
-CXXFLAGS = -O3 -I$(SRCDIR)/include -w --std=c++11
+CXXFLAGS = -O3 -I$(SRCDIR)/include -w --std=c++11 -lpthread
 
 RM = rm
 RMFLAGS = -rf
@@ -25,11 +25,11 @@ all: $(TARGET)
 
 client: $(CLIENTOBJ)
 	$(CP) $(CPFLAGS) $(CLIENTDIRTPL) $(CLIENTDIR)
-	$(CXX) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 server: $(SERVEROBJ)
 	$(CP) $(CPFLAGS) $(SERVERDIRTPL) $(SERVERDIR)
-	$(CXX) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -o $@ -c $<
