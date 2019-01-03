@@ -28,6 +28,7 @@ private:
 	int _port;
 	struct addrinfo *_server_info;
 	int _sockfd;
+	
 };
 
 #endif

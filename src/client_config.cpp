@@ -28,4 +28,8 @@ Config::Config(int argc, char *argv[])
 		}
 		server_info >> buf1 >> buf2 >> buf3;
 	}
+
+////
+	if(argc == 2)
+		_port = atoi(argv[1]);
 }

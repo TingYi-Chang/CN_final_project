@@ -4,6 +4,10 @@
 #include "client_connection.hpp"
 #include "common_app_protocol.hpp"
 
+//////////
+#include <cstdio>
+#include <errno.h>
+
 Connection::Connection(std::string host_name, int port)
 	: _is_connected(false)
 	, _host_name(host_name)
@@ -94,8 +98,8 @@ bool Connection::try_to_recv(int &op, std::string &data){
 	if(!FD_ISSET(_sockfd, &rfds))
 		return false;
 	else{
-		char buf[16];
-		int ret = recv(_sockfd, buf, 8, 0);
+		int tmp_op, tmp_data_len;
+		int ret = recv(_sockfd, &tmp_op, 4, 0);
 		if(ret == -1)
 			return false;
 		else if (ret == 0){
@@ -104,9 +108,16 @@ bool Connection::try_to_recv(int &op, std::string &data){
 			_is_connected = false;
 			return false;
 		}
-		int tmp_op, tmp_data_len;
-		memcpy(&tmp_op, buf, 4);
-		memcpy(&tmp_data_len, buf+4, 4);
+		ret = recv(_sockfd, &tmp_data_len, 4, 0);
+		if(ret == -1)
+			return false;
+		else if (ret == 0){
+			close(_sockfd);
+			_sockfd = -1;
+			_is_connected = false;
+			return false;
+		}
+
 		op = ntohl(tmp_op);
 		tmp_data_len = ntohl(tmp_data_len);
 		char *buf2 = (char *)malloc(tmp_data_len+1);
@@ -138,14 +149,19 @@ bool Connection::to_send(int op, std::string &data){
 	memcpy(buf+4, &tmp_data_len, 4);
 	memcpy(buf+8, data.c_str(), data.size());
 	int ret = send(_sockfd, buf, buf_len, 0);
+/////////
+	printf("send(op+len+data) fd %d, ret %d\n", _sockfd, ret);
 	free(buf);
 	if(ret == -1) return false;
 	return true;
 }
 
 bool Connection::to_recv(int &op, std::string &data){
-	char buf[16];
-	int ret = recv(_sockfd, buf, 8, 0);
+	int tmp_op, tmp_data_len;
+	int ret = recv(_sockfd, &tmp_op, 4, 0);
+/////////
+	printf("recv(op) fd %d, ret %d, op %d\n", _sockfd, ret, tmp_op);
+
 	if(ret == -1)
 		return false;
 	else if (ret == 0){
@@ -154,14 +170,28 @@ bool Connection::to_recv(int &op, std::string &data){
 		_is_connected = false;
 		return false;
 	}
-	int tmp_op, tmp_data_len;
-	memcpy(&tmp_op, buf, 4);
-	memcpy(&tmp_data_len, buf+4, 4);
+
+	ret = recv(_sockfd, &tmp_data_len, 4, 0);
+/////////
+	printf("recv(len) fd %d, ret %d, len %d\n", _sockfd, ret, tmp_data_len);
+
+	if(ret == -1)
+		return false;
+	else if (ret == 0){
+		close(_sockfd);
+		_sockfd = -1;
+		_is_connected = false;
+		return false;
+	}
+	
 	op = ntohl(tmp_op);
 	tmp_data_len = ntohl(tmp_data_len);
 	char *buf2 = (char *)malloc(tmp_data_len+1);
 	memset(buf2, 0, tmp_data_len+1);
 	ret = recv(_sockfd, buf2, tmp_data_len, 0);
+/////////
+	printf("recv(data) fd %d, ret %d, data %s\n", _sockfd, ret, buf2);
+
 	if(ret == -1) {
 		free(buf2);
 		return false;

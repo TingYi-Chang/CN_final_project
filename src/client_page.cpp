@@ -3,6 +3,10 @@
 #include "common_app_protocol.hpp"
 #include <iostream>
 
+///////
+#include <cstdio>
+
+
 void _split_out_ID(std::string &ID, std::string &message, std::string &raw){
 	std::size_t found = raw.find_first_of(" ");
 	if(found == std::string::npos){
@@ -52,6 +56,15 @@ void Page::run_page(){
 		case PAGE_SIGNUP:
 			_run_page_signup();
 			break;
+		case PAGE_LOBBY:
+			_run_page_lobby();
+			break;
+		case PAGE_CHAT:
+			_run_page_chat();
+			break;
+		case PAGE_FILE:
+			_run_page_file();
+			break;
 	}
 	return;
 }
@@ -83,22 +96,22 @@ bool Page::_auto_reconnect(){
 }
 
 bool Page::_auto_send(int op, std::string data){
-	while(!_connection.to_send(op, data))
+	while(!_connection.to_send(op, data)){
 		if(!_auto_reconnect()){
 			_state = PAGE_EXIT;
 			return false;
 		}
+	}
 	return true;
 }
 
 bool Page::_auto_recv(int &op, std::string &data){
-	while(!_connection.to_recv(op, data))
+	while(!_connection.to_recv(op, data)){
 		if(!_auto_reconnect()){
 			_state = PAGE_EXIT;
 			return false;
 		}
-////////////
-	std::cout << "[YOYO]recieved" << op << " " << data << std::endl;
+	}
 	return true;
 }
 
@@ -135,7 +148,7 @@ void Page::_run_page_login(){
 			is_done = true;
 		}
 		else if(line.is_command && line.topic == "\\quit"){
-			std::cout << "quit." << std::endl;
+			printf("quit.\n");
 			_state = PAGE_EXIT;
 			is_done = true;
 		}
@@ -145,36 +158,36 @@ void Page::_run_page_login(){
 			if(!_auto_send(APP_LOGIN, line.topic)) return;
 			if(!_auto_recv(resOp, resData)) return;
 			if(resOp == APP_LOGIN){
-				std::cout << resData << std::endl;
+				printf("%s\n", resData.c_str());
 				UserLine line2;
 				while(to_stdin(line2, _queue) && line2.is_command)
-					std::cout << "Invalid command." << std::endl;
+					printf("Invalid command.\n");
 				if(!_auto_send(APP_LOGIN, line2.topic)) return;
 				if(!_auto_recv(resOp, resData)) return;
 				if(resOp == APP_MAIN){
-					std::cout << "[Server]" << resData << std::endl;
+					printf("[Server]%s\n", resData.c_str());
 					_config.set_ID(line.topic);
 					_state = PAGE_LOBBY;
 					is_done = true;
 				}
 				else if(resOp == APP_ERROR){
-					std::cout << "[Server]" << resData << std::endl;
-					std::cout << "Please enter your ID:" << std::endl;
+					printf("[Server]%s\n", resData.c_str());
+					printf("Please enter your ID:\n");
 				}
 				else{
-					std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+					printf("[Warning]Server sent a strange op : %d\n", resOp);
 				}
 			}
 			else if(resOp == APP_ERROR){
-				std::cout << "[Server]" << resData << std::endl;
-				std::cout << "Please enter your ID:" << std::endl;
+				printf("[Server]%s\n", resData.c_str());
+				printf("Please enter your ID:\n");
 			}
 			else{
-				std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+				printf("[Warning]Server sent a strange op : %d\n", resOp);
 			}
 		}
 		else{
-			std::cout << "Invalid command, please try again." << std::endl;
+			printf("Invalid command, please try again.\n");
 		}
 	}
 	
@@ -189,42 +202,43 @@ void Page::_run_page_signup(){
 	if(!_auto_send(APP_SIGNUP, want)) return;
 	if(!_auto_recv(resOp, resData)) return;
 	if(resOp == APP_SIGNUP){
-		std::cout << "[Server]" << resData << std::endl;
+		printf("[Server]%s\n", resData.c_str());
 		while(to_stdin(line, _queue) && line.is_command)
-			std::cout << "Invalid command." << std::endl;
+			printf("Invalid command.\n");
 		if(!_auto_send(APP_SIGNUP, line.topic)) return;
 		if(!_auto_recv(resOp, resData)) return;
 		if(resOp == APP_SIGNUP){
-			std::cout << "[Server]" << resData << std::endl;
+			printf("[Server]%s\n", resData.c_str());
 			while(to_stdin(line, _queue) && line.is_command)
-				std::cout << "Invalid command." << std::endl;
+				printf("Invalid command.\n");
 			if(!_auto_send(APP_SIGNUP, line.topic)) return;
 			if(!_auto_recv(resOp, resData)) return;
 			if(resOp == APP_SIGNUP){
-				std::cout << "[Server]" << resData << std::endl;
+				printf("[Server]%s\n", resData.c_str());
 			}
 			else if(resOp == APP_ERROR){
-				std::cout << "[Server]" << resData << std::endl;
+				printf("[Server]%s\n", resData.c_str());
 			}
 			else{
-				std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+				printf("[Warning]Server sent a strange op : %d\n", resOp);
 			}
 		}
 		else if(resOp == APP_ERROR){
-			std::cout << "[Server]" << resData << std::endl;
+			printf("[Server]%s\n", resData.c_str());
 		}
 		else{
-			std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+			printf("[Warning]Server sent a strange op : %d\n", resOp);
 		}
 	}
 	else{
-		std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+		printf("[Warning]Server sent a strange op : %d\n", resOp);
 	}
 	_state = APP_LOGIN;
 	return;
 }
 
 void Page::_run_page_lobby(){
+	printf("lobbbbby\n");
 	std::cout
 		<< "#####################################" << std::endl
 		<< "#---------------lobby---------------#" << std::endl
