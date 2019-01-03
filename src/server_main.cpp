@@ -40,7 +40,7 @@ int server_send(int fd, int op, int data_len, char message[]){
 	op = htonl(op);	
 	int tmp_data_len = htonl(data_len);
 	send (fd,&op,sizeof(int),0);
-	send (fd,&data_len,sizeof(int),0);
+	send (fd,&tmp_data_len,sizeof(int),0);
 	send (fd,message,data_len,0);
 	//printf ("a,b,c = %d %d %d\n",a,b,c);
 	return 0;
@@ -49,11 +49,8 @@ int server_send(int fd, int op, int data_len, char message[]){
 int Recv_Mes(int client_num){
 	int op, data_len;
 	//client disconnected
-	int test = 0;
-	if ((test = recv(client_log[client_num].fd, &op, sizeof(int),0)) <= 0){
-		printf ("test = %d\n",test);
+	if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0){
 		return -1;
-	}
 	if (recv(client_log[client_num].fd, &data_len, sizeof(int),0) <= 0)
 		return -1;
 	op = ntohl(op);
