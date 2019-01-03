@@ -85,7 +85,7 @@ int Recv_Mes(int client_num){
 				return 0;
 			}
 			else if (file)
-				server_send(client_log[client_num].fd, APP_LOGIN, 22,"Please enter password.");
+				server_send(client_log[client_num].fd, APP_LOGIN, 22,"Please enter password:");
 			char tmpid[ID_MAX];
 			strcpy(tmpid,input);
 			//check password
@@ -147,7 +147,7 @@ int Recv_Mes(int client_num){
 				return 0;
 			}
 			else if (!file.is_open()){
-				server_send(client_log[client_num].fd, APP_SIGNUP, 21,"Please enter password");
+				server_send(client_log[client_num].fd, APP_SIGNUP, 21,"Please enter password:");
 				op = 0;
 				data_len = 0;
 				if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0)
