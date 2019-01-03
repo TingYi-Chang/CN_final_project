@@ -6,6 +6,7 @@
 #define APP_SIGNUP 2
 #define APP_CHAT 3
 #define APP_FILE 4
+#define APP_MAIN 5
 /*
 typedef struct{
 	int op;
