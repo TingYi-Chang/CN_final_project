@@ -18,6 +18,21 @@ void _split_out_ID(std::string &ID, std::string &message, std::string &raw){
 	}
 }
 
+bool _write_into_file(std::string filename, std::string &data){
+	////////////
+	return true;
+}
+
+bool _check_file_existence(std::string filename){
+	////////////
+	return true;
+}
+
+bool _read_from_file(std::string filename, std::string &data){
+	////////////
+	return true;
+}
+
 Page::Page(int argc, char *argv[], UserQueue &queue)
 	: _config(argc, argv)
 	, _connection(_config.host_name(), _config.port())
@@ -288,6 +303,7 @@ void Page::_run_page_chat(){
 			_split_out_ID(ID, message, resData);
 		}
 		if(ID == "log"){
+			std::cout << "##### chatting with " << _config.chatID() << " #####" << std::endl;
 			std::cout << message;
 		}
 	}
@@ -351,4 +367,191 @@ void Page::_run_page_chat(){
 
 	_config.set_chatID("");
 	return;
+}
+
+void Page::_run_page_file(){
+
+	if(!_auto_send(APP_FILE, "anyways")) return;
+	int resOp;
+	std::string resData;
+	bool got_file_list = false;
+	while(!got_file_list){
+		if(!_auto_recv(resOp, resData)) return;
+		if(resOp == APP_CHAT){
+			std::string ID, message;
+			_split_out_ID(ID, message, resData);
+			_notification.push("[" + std::string(ID) + "] sent you a message.");
+		}
+		else if(resOp == APP_ERROR){
+			std::cout << "[Server]" << resData << std::endl;
+			_state = PAGE_LOBBY;
+			return;
+		}
+		else if(resOp == APP_FILE){
+			std::cout << "Avalible file(s):" << std::endl << resData << std::endl;
+			got_file_list = true;
+		}
+		else{
+			std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+			_state = PAGE_LOBBY;
+			return;
+		}
+
+	}
+	bool is_done= false;
+	UserLine line;
+	while(!is_done){
+		if(_connection.try_to_recv(resOp, resData)){
+			if(resOp == APP_CHAT){
+				std::string ID, message;
+				_split_out_ID(ID, message, resData);
+				_notification.push("[" + std::string(ID) + "] sent you a message.");
+			}
+			else{
+				std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+				_state = PAGE_LOBBY;
+				return;
+			}
+		}
+		if(try_to_stdin(line, _queue)){
+			if(line.is_command && line.topic == "\\help"){
+				std::cout
+					<< "****** valid commands ******" << std::endl
+					<< "\\help : to get command list." << std::endl
+					<< "\\download [filename] : download the required file." << std::endl
+					<< "\\send [username] [filename] : send file to another user." << std::endl
+					<< "\\back : to go back to the lobby." << std::endl
+					<< "****************************" << std::endl;
+			}
+			else if(line.is_command && line.topic == "\\back"){
+				std::cout << "Go back to the lobby." << std::endl;
+				if(!_auto_send(APP_MAIN, "\\back")) return;
+				if(!_auto_recv(resOp, resData)) return;
+				if(resOp != APP_MAIN)
+					std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+				_state = PAGE_LOBBY;
+				is_done = true;
+			}
+			else if(line.is_command && line.topic == "\\download"){
+				if(line.arg.size() != 1){
+					std::cout << "Useage : \\download [filename]" << std::endl;
+				}
+				else{
+					if(!_auto_send(APP_FILE, "download")) return;
+					bool got_confirm = false;
+					while(!got_confirm){
+						if(!_auto_recv(resOp, resData)) return;
+						if(resOp == APP_CHAT){
+							std::string ID, message;
+							_split_out_ID(ID, message, resData);
+							_notification.push("[" + std::string(ID) + "] sent you a message.");
+						}
+						else if(resOp == APP_FILE){
+							got_confirm = true;
+						}
+						else{
+							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							_state = PAGE_LOBBY;
+							return;
+						}
+					}
+					if(!_auto_send(APP_FILE, line.arg[0])) return;
+					got_confirm = false;
+					while(!got_confirm){
+						if(!_auto_recv(resOp, resData)) return;
+						if(resOp == APP_CHAT){
+							std::string ID, message;
+							_split_out_ID(ID, message, resData);
+							_notification.push("[" + std::string(ID) + "] sent you a message.");
+						}
+						else if(resOp == APP_ERROR){
+							std::cout << "[Server]" << resData << std::endl;
+							got_confirm = true;
+						}
+						else if(resOp == APP_FILE){
+							if(_write_into_file(line.arg[0], resData))
+								std::cout << "Download " << line.arg[0] << " susseeded." << std::endl;
+							else
+								std::cout << "Download " << line.arg[0] << " failed." << std::endl;
+							got_confirm = true;
+						}
+						else{
+							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							_state = PAGE_LOBBY;
+							return;
+						}
+					}
+				}
+			}
+			else if(line.is_command && line.topic == "\\send"){
+				if(line.arg.size() != 2){
+					std::cout << "Useage : \\send [username] [filename]" << std::endl;
+				}
+				else if(!_check_file_existence(line.arg[1])){
+					std::cout << "[Warning]No such file." << std::endl;
+				}
+				else{
+					if(!_auto_send(APP_FILE, "upload")) return;
+					bool got_confirm = false;
+					while(!got_confirm){
+						if(!_auto_recv(resOp, resData)) return;
+						if(resOp == APP_CHAT){
+							std::string ID, message;
+							_split_out_ID(ID, message, resData);
+							_notification.push("[" + std::string(ID) + "] sent you a message.");
+						}
+						else if(resOp == APP_FILE){
+							got_confirm = true;
+						}
+						else{
+							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							_state = PAGE_LOBBY;
+							return;
+						}
+					}
+					if(!_auto_send(APP_FILE, line.arg[0] + " " + line.arg[1])) return;
+					got_confirm = false;
+					bool ready_to_send = false;
+					while(!got_confirm){
+						if(!_auto_recv(resOp, resData)) return;
+						if(resOp == APP_CHAT){
+							std::string ID, message;
+							_split_out_ID(ID, message, resData);
+							_notification.push("[" + std::string(ID) + "] sent you a message.");
+						}
+						else if(resOp == APP_FILE){
+							got_confirm = true;
+							ready_to_send = true;
+						}
+						else if(resOp == APP_ERROR){
+							std::cout << "[Server]" << resData << std::endl;
+							got_confirm = true;
+						}
+						else{
+							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							_state = PAGE_LOBBY;
+							return;
+						}
+					}
+					if(ready_to_send){
+						std::cout << "Sending " << line.arg[1] << " to " << line.arg[0] << "." << std::endl;
+						std::string raw_file_content;
+						_read_from_file(line.arg[1], raw_file_content);
+						if(!_auto_send(APP_FILE, raw_file_content)) return;
+						if(!_auto_recv(resOp, resData)) return;
+						if(resOp != APP_FILE){
+							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							_state = PAGE_LOBBY;
+							return;
+						}
+					}
+				}
+			}
+			else if(line.is_command){
+				std::cout << "Invalid command, please try again." << std::endl;
+			}
+		}
+	}
+
+
 }

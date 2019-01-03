@@ -35,6 +35,7 @@ private:
 	void _run_page_signup();
 	void _run_page_lobby();
 	void _run_page_chat();
+	void _run_page_file();
 };
 
 #endif
