@@ -36,34 +36,43 @@ User_log 	client_log[MAX_CLIENT];
 
 
 int server_send(int fd, int op, int data_len, char message[]){
+	printf ("Fd = %d, Send op = %d, len = %d, mes = %s, meslen = %d\n",fd,op,data_len,message, strlen(message));
 	op = htonl(op);	
 	int tmp_data_len = htonl(data_len);
 	send (fd,&op,sizeof(int),0);
-	send (fd,&tmp_data_len,sizeof(int),0);
+	send (fd,&data_len,sizeof(int),0);
 	send (fd,message,data_len,0);
+	//printf ("a,b,c = %d %d %d\n",a,b,c);
 	return 0;
 }
 
 int Recv_Mes(int client_num){
 	int op, data_len;
 	//client disconnected
-	if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0)
+	int test = 0;
+	if ((test = recv(client_log[client_num].fd, &op, sizeof(int),0)) <= 0){
+		printf ("test = %d\n",test);
 		return -1;
+	}
 	if (recv(client_log[client_num].fd, &data_len, sizeof(int),0) <= 0)
 		return -1;
 	op = ntohl(op);
 	data_len = ntohl(data_len);
 
-	char input[data_len];
+	char input[data_len+1];
 	memset(input,'\0', sizeof(input));
-
 	if (recv(client_log[client_num].fd, input, data_len, 0) <= 0)
 		return -1;
 	string message = input;
+	printf ("strlen = %d\n",strlen(input));
+	printf ("op = %d, datalen = %d, Message: %s\n",op,data_len,message.c_str());
+	
 
 	//login
 	if (client_log[client_num].status == 'L'){
+		//printf ("Login page.\n");
 		if (op == APP_SIGNUP){
+		//	printf ("Signup request\n");
 			client_log[client_num].status = 'R';
 			server_send(client_log[client_num].fd, APP_SIGNUP, 11, "Sign up ID:");
 			return 1;
@@ -71,7 +80,9 @@ int Recv_Mes(int client_num){
 		else if(op == APP_LOGIN){
 			//check ID
 			fstream file;
-			file.open(input,ios::in);//path should be added.
+			string info_path = "server_data/";
+			info_path = info_path + input + "/" + input + ".txt";
+			file.open(info_path,ios::in);
 			if (!file){
 				server_send(client_log[client_num].fd, APP_ERROR, 19, "User doesn't exist.");
 				return 0;
@@ -127,11 +138,10 @@ int Recv_Mes(int client_num){
 		if(op == APP_SIGNUP){
 			char path[256] = "server_data/";
 			char id[ID_MAX] = "\0";
-			char info_path[256] = "\0";
+			string info_path = "server_data/";
+			info_path = info_path + input + "/" + input + ".txt";
 			strcat(path,input);
 			strcpy(id,input);
-			strcpy(info_path,path);
-			strcat(info_path,".txt");
 			fstream file;
 			file.open(info_path,ios::in);//path should be added
 			if (file.is_open() == 1){
@@ -141,6 +151,8 @@ int Recv_Mes(int client_num){
 			}
 			else if (!file.is_open()){
 				server_send(client_log[client_num].fd, APP_SIGNUP, 21,"Please enter password");
+				op = 0;
+				data_len = 0;
 				if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0)
 					return -1;
 				if (recv(client_log[client_num].fd, &data_len, sizeof(int),0) <= 0)
@@ -150,22 +162,34 @@ int Recv_Mes(int client_num){
 				memset(input,'\0',sizeof(input));
 				if (recv(client_log[client_num].fd,input,data_len,0) <= 0)
 					return -1;
+/////
+	printf ("strlen = %d\n",strlen(input));
+	printf ("op = %d, datalen = %d, Message: %s\n",op,data_len,input);
+	
+
 				if(op == APP_SIGNUP){
-					char info_path[256] = "\0";
+////
+	printf ("Set reg path\n");
+	printf ("path = %s\n",path);
 					char mes_path[256] = "\0";
 					char file_path[256] = "\0";
 					strcpy(mes_path,path);
 					strcat(mes_path,"/");
 					strcat(mes_path,"message");
-					strcpy(file_path,mes_path);
+////
+	printf ("mes_path = %s\n",mes_path);
+					strcpy(file_path,path);
 					strcat(file_path,"/");
 					strcat(file_path,"file");
-
+////
+	printf ("file_path = %s\n",file_path);
+	printf ("info_path = %s\n",info_path.c_str());
 					int status = mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 					int status_mes = mkdir(mes_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 					int status_file = mkdir(file_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 					ofstream fout;
 					fout.open(info_path,ios::out);
+					printf ("status = %d, %d, %d\n",status,status_mes,status_file);
 					if (status != 0 || status_mes != 0 || status_file != 0 || !fout){
 						printf ("ERROR, cannot reg\n");
 						return -2;
@@ -431,7 +455,7 @@ int main(int argc, char *argv[]){
 	}
 	//setup parameters that select() used
 	struct timeval tv;
-	fd_set rdfds;
+		fd_set rdfds;
 	fd_set master;
 
 	tv.tv_sec = 10;
@@ -440,7 +464,6 @@ int main(int argc, char *argv[]){
 	FD_ZERO(&master);
 	FD_SET(server_fd, &master);
 	int maxfd = server_fd;
-
 	int	 		fd;
 	int			client_num = 0;
 	char 		input[STRING_MAX];
@@ -477,12 +500,14 @@ int main(int argc, char *argv[]){
 		//check client
 		for (int i = 0; i < MAX_CLIENT; i++){
 			if (FD_ISSET(client_log[i].fd,&rdfds)){//add thread
+				printf ("Get message from fd %d\n",client_log[i].fd);
 				int check = Recv_Mes(i);
 				if (check == -1){
+					printf ("client %d disconnect\n",client_log[i].fd);
 					FD_CLR(client_log[i].fd,&master);
 					close(client_log[i].fd);
 					client_log[i].fd = 0;
-					continue;
+					return 0;
 				}
 				if (check == -2)//server error
 					return 0;
