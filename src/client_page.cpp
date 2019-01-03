@@ -198,16 +198,13 @@ void Page::_run_page_login(){
 void Page::_run_page_signup(){
 	int resOp;
 	std::string resData, want = "I want to sign up.";
-	UserLine line;
 	if(!_auto_send(APP_SIGNUP, want)) return;
 	if(!_auto_recv(resOp, resData)) return;
+	UserLine line;
+		
 	if(resOp == APP_SIGNUP){
-		printf("[Server]%s\n", resData.c_str());
-		while(to_stdin(line, _queue) && line.is_command)
-			printf("Invalid command.\n");
-		if(!_auto_send(APP_SIGNUP, line.topic)) return;
-		if(!_auto_recv(resOp, resData)) return;
-		if(resOp == APP_SIGNUP){
+		bool is_done = false;
+		while(!is_done){
 			printf("[Server]%s\n", resData.c_str());
 			while(to_stdin(line, _queue) && line.is_command)
 				printf("Invalid command.\n");
@@ -215,19 +212,24 @@ void Page::_run_page_signup(){
 			if(!_auto_recv(resOp, resData)) return;
 			if(resOp == APP_SIGNUP){
 				printf("[Server]%s\n", resData.c_str());
+				while(to_stdin(line, _queue) && line.is_command)
+					printf("Invalid command.\n");
+				if(!_auto_send(APP_SIGNUP, line.topic)) return;
+				if(!_auto_recv(resOp, resData)) return;
+				if(resOp == APP_SIGNUP){
+					printf("[Server]%s\n", resData.c_str());
+					is_done = true;
+				}
+				else{
+					printf("[Warning]Server sent a strange op : %d\n", resOp);
+				}
 			}
 			else if(resOp == APP_ERROR){
-				printf("[Server]%s\n", resData.c_str());
+				
 			}
 			else{
 				printf("[Warning]Server sent a strange op : %d\n", resOp);
 			}
-		}
-		else if(resOp == APP_ERROR){
-			printf("[Server]%s\n", resData.c_str());
-		}
-		else{
-			printf("[Warning]Server sent a strange op : %d\n", resOp);
 		}
 	}
 	else{

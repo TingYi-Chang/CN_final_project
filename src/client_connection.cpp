@@ -159,8 +159,6 @@ bool Connection::to_send(int op, std::string &data){
 bool Connection::to_recv(int &op, std::string &data){
 	int tmp_op, tmp_data_len;
 	int ret = recv(_sockfd, &tmp_op, 4, 0);
-/////////
-	printf("recv(op) fd %d, ret %d, op %d\n", _sockfd, ret, tmp_op);
 
 	if(ret == -1)
 		return false;
@@ -172,8 +170,6 @@ bool Connection::to_recv(int &op, std::string &data){
 	}
 
 	ret = recv(_sockfd, &tmp_data_len, 4, 0);
-/////////
-	printf("recv(len) fd %d, ret %d, len %d\n", _sockfd, ret, tmp_data_len);
 
 	if(ret == -1)
 		return false;
@@ -189,8 +185,9 @@ bool Connection::to_recv(int &op, std::string &data){
 	char *buf2 = (char *)malloc(tmp_data_len+1);
 	memset(buf2, 0, tmp_data_len+1);
 	ret = recv(_sockfd, buf2, tmp_data_len, 0);
+
 /////////
-	printf("recv(data) fd %d, ret %d, data %s\n", _sockfd, ret, buf2);
+	printf("recv(data) fd %d, op %d, len %d, data %s\n--------\n", _sockfd, op, tmp_data_len, buf2);
 
 	if(ret == -1) {
 		free(buf2);
