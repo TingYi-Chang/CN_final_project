@@ -49,7 +49,7 @@ int server_send(int fd, int op, int data_len, char message[]){
 int Recv_Mes(int client_num){
 	int op, data_len;
 	//client disconnected
-	if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0){
+	if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0)
 		return -1;
 	if (recv(client_log[client_num].fd, &data_len, sizeof(int),0) <= 0)
 		return -1;
@@ -142,7 +142,7 @@ int Recv_Mes(int client_num){
 			fstream file;
 			file.open(info_path,ios::in);//path should be added
 			if (file.is_open() == 1){
-				server_send(client_log[client_num].fd, APP_ERROR, 17,"ID already exist.");
+				server_send(client_log[client_num].fd, APP_ERROR, 29,"ID already exist.\nSign up ID:");
 				file.close();
 				return 0;
 			}
