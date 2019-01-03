@@ -1,3 +1,4 @@
 *.o
 *.cpp~
 *.hpp~
+.DS_Store
