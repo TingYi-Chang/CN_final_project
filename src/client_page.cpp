@@ -2,9 +2,9 @@
 #include "client_user_io.hpp"
 #include "common_app_protocol.hpp"
 #include <iostream>
-
-///////
+#include <fstream>
 #include <cstdio>
+#include <sys/stat.h>
 
 
 void _split_out_ID(std::string &ID, std::string &message, std::string &raw){
@@ -23,17 +23,33 @@ void _split_out_ID(std::string &ID, std::string &message, std::string &raw){
 }
 
 bool _write_into_file(std::string filename, std::string &data){
-	////////////
+	std::fstream file(filename, std::ios::out | std::ios::trunc | std::ios::binary);
+	if(file){
+		file.write(data.c_str(), data.size());
+		file.close();
+	}
 	return true;
 }
 
 bool _check_file_existence(std::string filename){
-	////////////
-	return true;
+	struct stat buf;
+	if(stat(filename.c_str(), &buf) != -1)
+		return true;
+	return false;
 }
 
 bool _read_from_file(std::string filename, std::string &data){
-	////////////
+	std::fstream file(filename, std::ios::in | std::ios::binary);
+	if(file){
+		file.seekg(0, file.end);
+		int len = file.tellg();
+		file.seekg(0, file.beg);
+		char *buf = new char[len];
+		file.read(buf, len);
+		data = std::string(buf);
+		file.close();
+		delete[] buf;
+	}
 	return true;
 }
 
@@ -70,28 +86,31 @@ void Page::run_page(){
 }
 
 bool Page::_auto_reconnect(){
-	std::cout << "Connection lost, trying to reconnect. Use \\cancel to stop.  " << std::flush;
-	int animation = 0;
+	//std::cout << "Connection lost, trying to reconnect. Use \\cancel to stop.  " << std::flush;
+	printf("Connection lost, trying to reconnect. Use \\cancel to stop.\n");
+	//int animation = 0;
 	UserLine line;
 	while(!_connection.try_to_reconnect()){
 		if(try_to_stdin(line, _queue) && line.is_command && line.topic == "\\cancel"){
-			std::cout 
-				<< std::endl
-				<< "Reconnection canceled." << std::endl;
+			//std::cout 
+			//	<< std::endl
+			//	<< "Reconnection canceled." << std::endl;
+			printf("Reconnection canceled.\n");
 			return false;
 		}
-		animation ++;
-		if(animation == 20)
-			std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop.. " << std::flush;
-		else if(animation == 40)
-			std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop..." << std::flush;
-		else if(animation >= 60){
-			std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop.  " << std::flush;
-			animation = 0;
-		}
+		//animation ++;
+		//if(animation == 20)
+		//	std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop.. " << std::flush;
+		//else if(animation == 40)
+		//	std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop..." << std::flush;
+		//else if(animation >= 60){
+		//	std::cout << "\rConnection lost, trying to reconnect. Use \\cancel to stop.  " << std::flush;
+		//	animation = 0;
+		//}
 	}
-	std::cout << std::endl;
-	std::cout << "Reconnection succeeded." << std::endl;
+	//std::cout << std::endl;
+	//std::cout << "Reconnection succeeded." << std::endl;
+	printf("Reconnection succeeded.\n");
 	return true;
 }
 
@@ -117,31 +136,29 @@ bool Page::_auto_recv(int &op, std::string &data){
 
 void Page::_run_page_exit(){
 	_finish = true;
-	std::cout << "Bye bye." << std::endl;
+	printf("Bye bye.\n");
 	return;
 }
 
 void Page::_run_page_login(){
-	std::cout
-		<< "#####################################" << std::endl
-		<< "#--------------welcome--------------#" << std::endl
-		<< "# please login first,               #" << std::endl
-		<< "# or use \\help to get command list. #" << std::endl
-		<< "#####################################" << std::endl
-		<< "Please enter your ID:" << std::endl;
+	printf("#####################################\n");
+	printf("#--------------welcome--------------#\n");
+	printf("# please login first,               #\n");
+	printf("# or use \\help to get command list. #\n");
+	printf("#####################################\n");
+	printf("Please enter your ID:\n");
 	UserLine line;
 	bool is_done = false;
 	while(!is_done){
 		to_stdin(line, _queue);
 		if(line.is_command && line.topic == "\\help"){
-			std::cout
-				<< "" << std::endl
-				<< "****** valid commands ******" << std::endl
-				<< "\\help : to get command list." << std::endl
-				<< "\\signup : to register a new username." << std::endl
-				<< "\\quit : to quit the client program." << std::endl
-				<< "****************************" << std::endl
-				<< "Please enter your ID:" << std::endl;
+			printf("\n");
+			printf("****** valid commands ******\n");
+			printf("\\help : to get command list.\n");
+			printf("\\signup : to register a new username.\n");
+			printf("\\quit : to quit the client program.\n");
+			printf("****************************\n");
+			printf("Please enter your ID:\n");
 		}
 		else if(line.is_command && line.topic == "\\signup"){
 			_state = PAGE_SIGNUP;
@@ -240,14 +257,12 @@ void Page::_run_page_signup(){
 }
 
 void Page::_run_page_lobby(){
-	printf("lobbbbby\n");
-	std::cout
-		<< "#####################################" << std::endl
-		<< "#---------------lobby---------------#" << std::endl
-		<< "# use \\help to check command list.  #" << std::endl
-		<< "#####################################" << std::endl;
+	printf("#####################################\n");
+	printf("#---------------lobby---------------#\n");
+	printf("# use \\help to check command list.  #\n");
+	printf("#####################################\n");
 	while(!_notification.empty()){
-		std::cout << _notification.front() << std::endl;
+		printf("%s\n", _notification.front().c_str());
 		_notification.pop();
 	}
 	UserLine line;
@@ -259,23 +274,21 @@ void Page::_run_page_lobby(){
 			if(op == APP_CHAT){
 				std::string ID, message;
 				_split_out_ID(ID, message, data);
-				std::cout << "[" << ID << "] sent you a message." << std::endl;
-			}
+				printf("[%s] sent you a message.\n", ID.c_str());			}
 		}
 		if(try_to_stdin(line, _queue)){
 			if(line.is_command && line.topic == "\\help"){
-				std::cout
-					<< "" << std::endl
-					<< "****** valid commands ******" << std::endl
-					<< "\\help : to get command list." << std::endl
-					<< "\\chat [id] : chat with someone." << std::endl
-					<< "\\file : check mail box." << std::endl
-					<< "\\quit : to quit the client program." << std::endl
-					<< "****************************" << std::endl;
+				printf("\n");
+				printf("****** valid commands ******\n");
+				printf("\\help : to get command list.\n");
+				printf("\\chat [id] : chat with someone.\n");
+				printf("\\file : check mail box.\n");
+				printf("\\quit : to quit the client program.\n");
+				printf("****************************\n");
 			}
 			if(line.is_command && line.topic == "\\chat"){
 				if(line.arg.size() != 1){
-					std::cout << "Useage : \\chat [id]" << std::endl;
+					printf("Useage : \\chat [id]\n");
 				}
 				else{
 					_config.set_chatID(line.arg[0]);
@@ -288,12 +301,12 @@ void Page::_run_page_lobby(){
 				is_done = true;
 			}
 			else if(line.is_command && line.topic == "\\quit"){
-				std::cout << "quit." << std::endl;
+				printf("quit.\n");
 				_state = PAGE_EXIT;
 				is_done = true;
 			}
 			else if(line.is_command){
-				std::cout << "Invalid command, please try again." << std::endl;
+				printf("Invalid command, please try again.\n");
 			}
 		}
 	}
@@ -305,7 +318,7 @@ void Page::_run_page_chat(){
 	std::string resData;
 	if(!_auto_recv(resOp, resData)) return;
 	if(resOp == APP_ERROR){
-		std::cout << "[Server]" << resData << std::endl;
+		printf("[Server]%s\n", resData.c_str());
 		_config.set_chatID("");
 		_state = PAGE_LOBBY;
 		return;
@@ -319,17 +332,18 @@ void Page::_run_page_chat(){
 			_split_out_ID(ID, message, resData);
 		}
 		if(ID == "log"){
-			std::cout << "##### chatting with " << _config.chatID() << " #####" << std::endl;
-			std::cout << message;
+			printf("##### chatting with %s #####\n", _config.chatID().c_str());
+			printf("%s\n", message.c_str());
 		}
 	}
 	else{
-		std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+		printf("[Warning]Server sent a strange op : %d\n", resOp);
 		_state = PAGE_LOBBY;
 		return;
 	}
 
-	std::cout << _config.ID() << ": " << std::flush;
+	printf("%s: ", _config.ID().c_str());
+	fflush(stdout);
 	bool is_done = false;
 	UserLine line;
 	std::string carrage = "\r                                                                                                                                  \r";
@@ -339,44 +353,44 @@ void Page::_run_page_chat(){
 				std::string ID, message;
 				_split_out_ID(ID, message, resData);
 				if(ID == _config.chatID()){
-					std::cout
-						<< carrage << ID << ": " << message << std::endl;
+					printf("%s%s: %s\n", carrage.c_str(), ID.c_str(), message.c_str());
 				}
 				else{
 					_notification.push("[" + std::string(ID) + "] sent you a message.");
 				}
 			}
 			else{
-				std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+				printf("[Warning]Server sent a strange op : %d\n", resOp);
 			}
 		}
 		if(try_to_stdin(line, _queue)){
 			if(line.is_command && line.topic == "\\help"){
-				std::cout
-					<< carrage
-					<< "****** valid commands ******" << std::endl
-					<< "\\help : to get command list." << std::endl
-					<< "\\back : to go back to the lobby." << std::endl
-					<< "****************************" << std::endl
-					<< _config.ID() << ": " << std::flush;
+				printf("%s", carrage.c_str());
+				printf("****** valid commands ******\n");
+				printf("\\help : to get command list.\n");
+				printf("\\back : to go back to the lobby.\n");
+				printf("****************************\n");
+				printf("%s: ", _config.ID().c_str());
+				fflush(stdout);
 			}
 			else if(line.is_command && line.topic == "\\back"){
-				std::cout << carrage << "Go back to the lobby." << std::endl;
+				printf("Go back to the lobby.\n");
 				if(!_auto_send(APP_MAIN, "\\back")) return;
 				if(!_auto_recv(resOp, resData)) return;
 				if(resOp != APP_MAIN)
-					std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+					printf("[Warning]Server sent a strange op : %d\n", resOp);
 				_state = PAGE_LOBBY;
 				is_done = true;
 			}
 			else if(!line.is_command){
 				if(!_auto_send(APP_CHAT, line.topic)) return;
-				std::cout << _config.ID() << ": " << std::flush;
+				printf("%s: ", _config.ID().c_str());
+				fflush(stdout);
 			}
 			else{
-				std::cout
-					<< "Invalid command, please try again." << std::endl
-					<< _config.ID() << ": " << std::flush;
+				printf("Invalid command, please try again.\n");
+				printf("%s: ", _config.ID().c_str());
+				fflush(stdout);
 			}
 		}
 	}
@@ -399,16 +413,16 @@ void Page::_run_page_file(){
 			_notification.push("[" + std::string(ID) + "] sent you a message.");
 		}
 		else if(resOp == APP_ERROR){
-			std::cout << "[Server]" << resData << std::endl;
+			printf("[Server]%s\n", resData.c_str());
 			_state = PAGE_LOBBY;
 			return;
 		}
 		else if(resOp == APP_FILE){
-			std::cout << "Avalible file(s):" << std::endl << resData << std::endl;
+			printf("Avalible file(s):\n%s\n", resData.c_str());
 			got_file_list = true;
 		}
 		else{
-			std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+			printf("[Warning]Server sent a strange op : %d\n", resOp);
 			_state = PAGE_LOBBY;
 			return;
 		}
@@ -424,33 +438,32 @@ void Page::_run_page_file(){
 				_notification.push("[" + std::string(ID) + "] sent you a message.");
 			}
 			else{
-				std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+				printf("[Warning]Server sent a strange op : %d\n", resOp);
 				_state = PAGE_LOBBY;
 				return;
 			}
 		}
 		if(try_to_stdin(line, _queue)){
 			if(line.is_command && line.topic == "\\help"){
-				std::cout
-					<< "****** valid commands ******" << std::endl
-					<< "\\help : to get command list." << std::endl
-					<< "\\download [filename] : download the required file." << std::endl
-					<< "\\send [username] [filename] : send file to another user." << std::endl
-					<< "\\back : to go back to the lobby." << std::endl
-					<< "****************************" << std::endl;
+				printf("****** valid commands ******\n");
+				printf("\\help : to get command list.\n");
+				printf("\\download [filename] : download the required file.\n");
+				printf("\\send [username] [filename] : send file to another user.\n");
+				printf("\\back : to go back to the lobby.\n");
+				printf("****************************\n");
 			}
 			else if(line.is_command && line.topic == "\\back"){
-				std::cout << "Go back to the lobby." << std::endl;
+				printf("Go back to the lobby.\n");
 				if(!_auto_send(APP_MAIN, "\\back")) return;
 				if(!_auto_recv(resOp, resData)) return;
 				if(resOp != APP_MAIN)
-					std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+					printf("[Warning]Server sent a strange op : %d\n", resOp);
 				_state = PAGE_LOBBY;
 				is_done = true;
 			}
 			else if(line.is_command && line.topic == "\\download"){
 				if(line.arg.size() != 1){
-					std::cout << "Useage : \\download [filename]" << std::endl;
+					printf("Useage : \\download [filename]\n");
 				}
 				else{
 					if(!_auto_send(APP_FILE, "download")) return;
@@ -466,7 +479,7 @@ void Page::_run_page_file(){
 							got_confirm = true;
 						}
 						else{
-							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							printf("[Warning]Server sent a strange op : %d\n", resOp);
 							_state = PAGE_LOBBY;
 							return;
 						}
@@ -481,18 +494,18 @@ void Page::_run_page_file(){
 							_notification.push("[" + std::string(ID) + "] sent you a message.");
 						}
 						else if(resOp == APP_ERROR){
-							std::cout << "[Server]" << resData << std::endl;
+							printf("[Server]%s\n", resData.c_str());
 							got_confirm = true;
 						}
 						else if(resOp == APP_FILE){
 							if(_write_into_file(line.arg[0], resData))
-								std::cout << "Download " << line.arg[0] << " susseeded." << std::endl;
+								printf("Download %s susseeded.\n", line.arg[0].c_str());
 							else
-								std::cout << "Download " << line.arg[0] << " failed." << std::endl;
+								printf("Download %s failed.\n", line.arg[0].c_str());
 							got_confirm = true;
 						}
 						else{
-							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							printf("[Warning]Server sent a strange op : %d\n", resOp);
 							_state = PAGE_LOBBY;
 							return;
 						}
@@ -501,10 +514,10 @@ void Page::_run_page_file(){
 			}
 			else if(line.is_command && line.topic == "\\send"){
 				if(line.arg.size() != 2){
-					std::cout << "Useage : \\send [username] [filename]" << std::endl;
+					printf("Useage : \\send [username] [filename]\n");
 				}
 				else if(!_check_file_existence(line.arg[1])){
-					std::cout << "[Warning]No such file." << std::endl;
+					printf("[Warning]No such file.\n");
 				}
 				else{
 					if(!_auto_send(APP_FILE, "upload")) return;
@@ -520,7 +533,7 @@ void Page::_run_page_file(){
 							got_confirm = true;
 						}
 						else{
-							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							printf("[Warning]Server sent a strange op : %d\n", resOp);
 							_state = PAGE_LOBBY;
 							return;
 						}
@@ -540,23 +553,23 @@ void Page::_run_page_file(){
 							ready_to_send = true;
 						}
 						else if(resOp == APP_ERROR){
-							std::cout << "[Server]" << resData << std::endl;
+							printf("[Server]%s\n", resData.c_str());
 							got_confirm = true;
 						}
 						else{
-							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							printf("[Warning]Server sent a strange op : %d\n", resOp);
 							_state = PAGE_LOBBY;
 							return;
 						}
 					}
 					if(ready_to_send){
-						std::cout << "Sending " << line.arg[1] << " to " << line.arg[0] << "." << std::endl;
+						printf("Sending %s to %s.\n", line.arg[1].c_str(), line.arg[0].c_str());
 						std::string raw_file_content;
 						_read_from_file(line.arg[1], raw_file_content);
 						if(!_auto_send(APP_FILE, raw_file_content)) return;
 						if(!_auto_recv(resOp, resData)) return;
 						if(resOp != APP_FILE){
-							std::cout << "[Warning]Server sent a strange op :" << resOp << std::endl;
+							printf("[Warning]Server sent a strange op : %d\n", resOp);
 							_state = PAGE_LOBBY;
 							return;
 						}
@@ -564,7 +577,7 @@ void Page::_run_page_file(){
 				}
 			}
 			else if(line.is_command){
-				std::cout << "Invalid command, please try again." << std::endl;
+				printf("Invalid command, please try again.\n");
 			}
 		}
 	}
