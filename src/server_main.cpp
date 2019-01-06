@@ -99,8 +99,9 @@ int Recv_Mes(int client_num){
 			}
 			op = ntohl(op);
 			data_len = ntohl(data_len);
-			memset(input,'\0',sizeof(input));
-			if (recv(client_log[client_num].fd,input,data_len,0) <= 0){
+			char input1[data_len+1];
+			memset(input1,'\0',sizeof(input1));
+			if (recv(client_log[client_num].fd,input1,data_len,0) <= 0){
 				file.close();
 				return -1;
 			}
@@ -114,12 +115,12 @@ int Recv_Mes(int client_num){
 					return -2;
 				}
 				file.getline(password,sizeof(password),' ');
-				if (strcmp(input,password) != 0){
+				if (strcmp(input1,password) != 0){
 					server_send(client_log[client_num].fd, APP_ERROR, 35,"Wrong Password, please login again.");
 					file.close();
 					return 0;
 				}
-				if (strcmp(input,password) == 0){
+				if (strcmp(input1,password) == 0){
 					server_send(client_log[client_num].fd, APP_MAIN, 8,"Welcome.");
 					client_log[client_num].status = 'M';
 					strcpy(client_log[client_num].id,tmpid);
@@ -156,13 +157,14 @@ int Recv_Mes(int client_num){
 					return -1;
 				op = ntohl(op);
 				data_len = ntohl(data_len);
-				memset(input,'\0',sizeof(input));
-				if (recv(client_log[client_num].fd,input,data_len,0) <= 0)
+				char input2[data_len+1];
+				memset(input2,'\0',sizeof(input2));
+				if (recv(client_log[client_num].fd,input2,data_len,0) <= 0)
 					return -1;
 /////
-	printf ("strlen = %d\n",strlen(input));
-	printf ("op = %d, datalen = %d, Message: %s\n",op,data_len,input);
+	printf ("strlen = %d\n",strlen(input2));
 	
+	printf ("op = %d, datalen = %d, Message: %s\n",op,data_len,input2);
 
 				if(op == APP_SIGNUP){
 ////
@@ -192,7 +194,7 @@ int Recv_Mes(int client_num){
 						return -2;
 					}
 					fout.write("hash: ",6);
-					fout.write(input,strlen(input));
+					fout.write(input2,strlen(input2));
 					fout.close();
 
 					server_send(client_log[client_num].fd, APP_SIGNUP, 16,"Sign up success!");
@@ -226,13 +228,22 @@ int Recv_Mes(int client_num){
 				fin.open(path,ifstream::in);
 				if (!fin){
 					server_send(client_log[client_num].fd, APP_CHAT, 4, "log ");
+					client_log[client_num].status = 'C';
+				strcpy(client_log[client_num].dest_id,input);
 					return 0;
 				}
 				fin.seekg(0,ios::end);
 				long long log_len = fin.tellg();
-				char history[log_len];
+////
+	printf ("History len: %d\n",log_len);
+				char history[log_len+1];
+				memset(history,'\0',sizeof(history));
+				fin.seekg(0,ios::beg);
 				fin.read(history,log_len);
 				char log [log_len + 10];
+				memset(log,'\0',sizeof(log));
+////
+	printf ("history: %s\n",history);
 				strcpy(log,"log ");
 				strcat(log,history);
 				server_send(client_log[client_num].fd, APP_CHAT, strlen(log), log);
@@ -253,7 +264,7 @@ int Recv_Mes(int client_num){
 				printf ("ERROR, no dir");
 				return -2;
 			}
-			char output[STRING_MAX] = "\0";
+			char output[STRING_MAX] = "Available file:\n";
 			while((ptr = readdir(dir)) != NULL){
 				if (strcmp(ptr->d_name,".") == 0 || strcmp(ptr->d_name,"..") == 0)
 					continue;
@@ -265,6 +276,15 @@ int Recv_Mes(int client_num){
 			client_log[client_num].status = 'F';
 			return 0;
 		}
+		/*
+		if (op == APP_BLACK){
+			ofstream fout;
+			string path = "server_data/";
+			path = path + client_log[client_num].id + "/" + client_log[client_num].id;
+			fout_dest.open(path,ios::app);
+			string black_id = "Black_id: ";
+			fout << black_id;
+		}*/
 	}
 	//Main end
 	//Chat
@@ -282,7 +302,7 @@ int Recv_Mes(int client_num){
 			string path1 = "server_data/";
 			path1 = path1 + client_log[client_num].id + "/message/" + client_log[client_num].dest_id;
 			fout_id.open(path1,ios::app);
-			string mes_to_id = client_log[client_num].dest_id;
+			string mes_to_id = client_log[client_num].id;
 			mes_to_id = mes_to_id + ": " + input + "\n";
 			fout_id << mes_to_id;
 			fout_dest.close();
@@ -294,7 +314,7 @@ int Recv_Mes(int client_num){
 					strcpy(message,client_log[client_num].id);
 					strcat(message," ");
 					strcat(message,input);
-					server_send(client_log[i].fd, APP_CHAT, data_len, input);
+					server_send(client_log[i].fd, APP_CHAT, strlen(message), message);
 				}
 			}
 			return 0;
@@ -320,25 +340,40 @@ int Recv_Mes(int client_num){
 					return -1;
 				op = ntohl(op);
 				data_len = ntohl(data_len);
-				memset(input,'\0',sizeof(input));
-				if (recv(client_log[client_num].fd,input,data_len,0) <= 0)
+				char *input3 = (char *)malloc(data_len+1);
+				memset(input3,'\0',sizeof(input3));
+				if (recv(client_log[client_num].fd,input3,data_len,0) <= 0)
 					return -1;
 				string file_path = "server_data/";
-				file_path = file_path + client_log[client_num].id + "/file/" + input;
+				file_path = file_path + client_log[client_num].id + "/file/" + input3;
+////
+	printf ("path = %s\n",file_path.c_str());
 				ifstream fin;
 				fin.open(file_path,ios::binary);
+				if (!fin){
+					server_send(client_log[client_num].fd,APP_ERROR,13,"No such file.");
+					return 0;
+				}
 				fin.seekg(0,ios::end);
 				long long log_len = fin.tellg();
-				char history[log_len];
-				fin.read(history,log_len);
-				char log [log_len + 10];
-				strcpy(log,"log ");
-				strcat(log,history);
-				server_send(client_log[client_num].fd, APP_FILE, strlen(log), log);
+				fin.seekg(0,ios::beg);
+				
+				char *file_data = (char *)malloc(log_len+1);
+				memset (file_data,'\0',sizeof(file_data));
+				fin.read(file_data,log_len);
+////
+	printf ("file_data len = %d, data= %s\n",log_len,file_data);
+				server_send(client_log[client_num].fd, APP_FILE, log_len, file_data);
 				fin.close();
+				/*
+				remove(file_path.c_str());
+				*/
+				/////add list
 				return 0;
 			}
-			else if (strcmp(input,"send") == 0){
+
+			//send file
+			else if (strcmp(input,"upload") == 0){
 				server_send(client_log[client_num].fd, APP_FILE, 11,"To who?");
 				if (recv(client_log[client_num].fd, &op, sizeof(int),0) <= 0)
 					return -1;
@@ -346,15 +381,18 @@ int Recv_Mes(int client_num){
 					return -1;
 				op = ntohl(op);
 				data_len = ntohl(data_len);
-				memset(input,'\0',sizeof(input));
-				if (recv(client_log[client_num].fd,input,data_len,0) <= 0)
+				char input4[data_len+1];
+				memset(input4,'\0',sizeof(input4));
+				if (recv(client_log[client_num].fd,input4,data_len,0) <= 0)
 					return -1;
+////
+	printf ("op = %d, datalen = %d, Message: %s\n",op,data_len,input4);
 				
 				char *pch;
-				pch = strtok(input," ");
+				pch = strtok(input4," ");
 				pch = strtok(NULL," ");
 				char dest_id[ID_MAX];
-				strcpy(dest_id,input);
+				strcpy(dest_id,input4);
 				char filename[data_len];
 				strcpy(filename,client_log[client_num].id);
 				strcat(filename,"_");
@@ -365,6 +403,18 @@ int Recv_Mes(int client_num){
 				strcat(dir_path,dest_id);
 				strcat(dir_path,"/file");
 				dir = opendir(dir_path);
+			
+				string path = dir_path;
+				path = path + "/" + filename;
+////
+printf ("path = %s\n",path.c_str());
+				ofstream fout;
+				fout.open(path,ios::out|ios::trunc|ios::binary);
+				if (!fout){
+					printf ("ERROR, cannot open file.\n");
+					return -2;
+				}
+
 				if (dir == NULL){
 					server_send(client_log[client_num].fd, APP_ERROR, 19,"User doesn't exist.");
 					return 0;	
@@ -379,20 +429,28 @@ int Recv_Mes(int client_num){
 					return -1;
 				op = ntohl(op);
 				data_len = ntohl(data_len);
-				memset(input,'\0',sizeof(input));
-				if (recv(client_log[client_num].fd,input,data_len,0) <= 0)
+//
+printf ("datalen = %d\n",data_len);
+				char *input5 = (char *)malloc(data_len);
+				char *ptr = input5;
+////
+printf ("test\n\n\n");
+				memset(input5,'\0',sizeof(input5));
+				int tmplen = 0;
+				while (tmplen < data_len){
+				int returnval;
+				if ((returnval = recv(client_log[client_num].fd,ptr,data_len-tmplen,0)) <= 0)
 					return -1;
-				
-				
-				string path = "server_data/";
-				path = path + dest_id + "/message/" + filename; 
-				ofstream fout;
-				fout.open(path,ios::out|ios::trunc|ios::binary);
-				if (!fout){
-					printf ("ERROR, cannot open file.\n");
-					return -2;
+				ptr += returnval;
+				tmplen += returnval;
 				}
-				fout.write(input,data_len);
+////
+	printf ("op = %d, datalen = %d, Message: %s\n",op,data_len,input5);
+//	printf ("Return value = %d\n",returnval);
+
+
+				fout.write(input5,data_len);
+				free(input5);
 				fout.close();
 				server_send(client_log[client_num].fd, APP_FILE, 8, "Done.");
 				return 0;
@@ -504,10 +562,11 @@ int main(int argc, char *argv[]){
 					FD_CLR(client_log[i].fd,&master);
 					close(client_log[i].fd);
 					client_log[i].fd = 0;
+				}
+				if (check == -2){//server error
+					printf ("Check == -2");
 					return 0;
 				}
-				if (check == -2)//server error
-					return 0;
 			}
 		}
 	}
