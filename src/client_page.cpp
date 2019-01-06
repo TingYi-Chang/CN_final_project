@@ -41,17 +41,29 @@ bool _check_file_existence(std::string filename){
 
 bool _read_from_file(std::string filename, std::string &data){
 	std::fstream file(filename, std::ios::in | std::ios::binary);
+///////
+//printf("reading %s\n", filename.c_str());
 	if(file){
 		file.seekg(0, file.end);
 		int len = file.tellg();
 		file.seekg(0, file.beg);
 		char *buf = new char[len];
 		file.read(buf, len);
-		data = std::string(buf);
+		data = std::string(buf, len);
 		file.close();
 		delete[] buf;
+//////
+//printf("want len : %d, readlen : %d\n", len, data.size());
 	}
 	return true;
+}
+
+std::string _discard_dir(std::string filepath){
+	int found = filepath.rfind("/");
+	if(found == std::string::npos)
+		return filepath;
+	else
+		return filepath.substr(found+1);
 }
 
 Page::Page(int argc, char *argv[], UserQueue &queue)
@@ -275,7 +287,8 @@ void Page::_run_page_lobby(){
 			if(op == APP_CHAT){
 				std::string ID, message;
 				_split_out_ID(ID, message, data);
-				printf("[%s] sent you a message.\n", ID.c_str());			}
+				printf("[%s] sent you a message.\n", ID.c_str());
+			}
 		}
 		if(try_to_stdin(line, _queue)){
 			if(line.is_command && line.topic == "\\help"){
@@ -287,7 +300,7 @@ void Page::_run_page_lobby(){
 				printf("\\quit : to quit the client program.\n");
 				printf("****************************\n");
 			}
-			if(line.is_command && line.topic == "\\chat"){
+			else if(line.is_command && line.topic == "\\chat"){
 				if(line.arg.size() != 1){
 					printf("Useage : \\chat [id]\n");
 				}
@@ -334,7 +347,7 @@ void Page::_run_page_chat(){
 		}
 		if(ID == "log"){
 			printf("##### chatting with %s #####\n", _config.chatID().c_str());
-			printf("%s\n", message.c_str());
+			printf("%s", message.c_str());
 		}
 	}
 	else{
@@ -355,6 +368,8 @@ void Page::_run_page_chat(){
 				_split_out_ID(ID, message, resData);
 				if(ID == _config.chatID()){
 					printf("%s%s: %s\n", carrage.c_str(), ID.c_str(), message.c_str());
+					printf("%s: ", _config.ID().c_str());
+					fflush(stdout);
 				}
 				else{
 					_notification.push("[" + std::string(ID) + "] sent you a message.");
@@ -419,7 +434,7 @@ void Page::_run_page_file(){
 			return;
 		}
 		else if(resOp == APP_FILE){
-			printf("Avalible file(s):\n%s\n", resData.c_str());
+			printf("%s", resData.c_str());
 			got_file_list = true;
 		}
 		else{
@@ -539,7 +554,7 @@ void Page::_run_page_file(){
 							return;
 						}
 					}
-					if(!_auto_send(APP_FILE, line.arg[0] + " " + line.arg[1])) return;
+					if(!_auto_send(APP_FILE, line.arg[0] + " " + _discard_dir(line.arg[1]))) return;
 					got_confirm = false;
 					bool ready_to_send = false;
 					while(!got_confirm){
@@ -567,6 +582,8 @@ void Page::_run_page_file(){
 						printf("Sending %s to %s.\n", line.arg[1].c_str(), line.arg[0].c_str());
 						std::string raw_file_content;
 						_read_from_file(line.arg[1], raw_file_content);
+//////
+//printf("read done\n");
 						if(!_auto_send(APP_FILE, raw_file_content)) return;
 						if(!_auto_recv(resOp, resData)) return;
 						if(resOp != APP_FILE){

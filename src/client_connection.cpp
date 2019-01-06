@@ -70,74 +70,26 @@ bool Connection::try_to_reconnect(){
 
 bool Connection::try_to_send(int op, std::string &data){
 	fd_set wfds;
+	struct timeval tv = {0};
 	FD_ZERO(&wfds);
 	FD_SET(_sockfd, &wfds);
-	select(_sockfd+1, NULL, &wfds, NULL, NULL);
-	if(!FD_ISSET(_sockfd, &wfds))
+	select(_sockfd+1, NULL, &wfds, NULL, &tv);
+	if(!FD_ISSET(_sockfd, &wfds)){
 		return false;
-	else{
-		int buf_len = 2 * sizeof(int) + data.size();
-		char *buf = (char *)malloc(buf_len);
-		memset(buf, 0, buf_len);
-		int tmp_op = htonl(op), tmp_data_len = htonl(data.size());
-		memcpy(buf, &tmp_op, 4);
-		memcpy(buf+4, &tmp_data_len, 4);
-		memcpy(buf+8, data.c_str(), data.size());
-		int ret = send(_sockfd, buf, buf_len, 0);
-		free(buf);
-		if(ret == -1) return false;
 	}
-	return true;
+	return to_send(op, data);
 }
 
 bool Connection::try_to_recv(int &op, std::string &data){
 	fd_set rfds;
+	struct timeval tv = {0};
 	FD_ZERO(&rfds);
 	FD_SET(_sockfd, &rfds);
-	select(_sockfd+1, &rfds, NULL, NULL, NULL);
-	if(!FD_ISSET(_sockfd, &rfds))
+	select(_sockfd+1, &rfds, NULL, NULL, &tv);
+	if(!FD_ISSET(_sockfd, &rfds)){
 		return false;
-	else{
-		int tmp_op, tmp_data_len;
-		int ret = recv(_sockfd, &tmp_op, 4, 0);
-		if(ret == -1)
-			return false;
-		else if (ret == 0){
-			close(_sockfd);
-			_sockfd = -1;
-			_is_connected = false;
-			return false;
-		}
-		ret = recv(_sockfd, &tmp_data_len, 4, 0);
-		if(ret == -1)
-			return false;
-		else if (ret == 0){
-			close(_sockfd);
-			_sockfd = -1;
-			_is_connected = false;
-			return false;
-		}
-
-		op = ntohl(tmp_op);
-		tmp_data_len = ntohl(tmp_data_len);
-		char *buf2 = (char *)malloc(tmp_data_len+1);
-		memset(buf2, 0, tmp_data_len+1);
-		ret = recv(_sockfd, buf2, tmp_data_len, 0);
-		if(ret == -1) {
-			free(buf2);
-			return false;
-		}
-		else if (ret == 0){
-			close(_sockfd);
-			_sockfd = -1;
-			_is_connected = false;
-			free(buf2);
-			return false;
-		}
-		data = std::string(buf2, tmp_data_len+1);
-		free(buf2);
 	}
-	return true;
+	return to_recv(op, data);
 }
 
 bool Connection::to_send(int op, std::string &data){
@@ -147,10 +99,17 @@ bool Connection::to_send(int op, std::string &data){
 	int tmp_op = htonl(op), tmp_data_len = htonl(data.size());
 	memcpy(buf, &tmp_op, 4);
 	memcpy(buf+4, &tmp_data_len, 4);
+//////
+//printf("data.size() = %d, buf_len = %d\n", data.size(), buf_len);
 	memcpy(buf+8, data.c_str(), data.size());
+//////
+//printf("start sending\n");
 	int ret = send(_sockfd, buf, buf_len, 0);
 /////////
-	printf("send(op+len+data) fd %d, ret %d\n", _sockfd, ret);
+//fprintf(stderr, "\t--------\n\tsend(op+len+data) fd %d, ret %d\n\t--------\n", _sockfd, ret);
+	if(ret == -1)
+		printf("%s\n", strerror(errno));
+
 	free(buf);
 	if(ret == -1) return false;
 	return true;
@@ -182,25 +141,29 @@ bool Connection::to_recv(int &op, std::string &data){
 	
 	op = ntohl(tmp_op);
 	tmp_data_len = ntohl(tmp_data_len);
-	char *buf2 = (char *)malloc(tmp_data_len+1);
-	memset(buf2, 0, tmp_data_len+1);
-	ret = recv(_sockfd, buf2, tmp_data_len, 0);
+	char *buf2 = (char *)malloc(tmp_data_len);
+	memset(buf2, 0, tmp_data_len);
+	int acc = 0;
+	while(acc < tmp_data_len){
+		ret = recv(_sockfd, buf2+acc, tmp_data_len-acc, 0);
 
 /////////
-	printf("recv(data) fd %d, op %d, len %d, data %s\n--------\n", _sockfd, op, tmp_data_len, buf2);
+//fprintf(stderr, "\t--------\n\trecv(data) fd %d, op %d, len %d, data %s\n\t--------\n", _sockfd, op, tmp_data_len, buf2);
 
-	if(ret == -1) {
-		free(buf2);
-		return false;
+		if(ret == -1) {
+			free(buf2);
+			return false;
+		}
+		else if (ret == 0){
+			close(_sockfd);
+			_sockfd = -1;
+			_is_connected = false;
+			free(buf2);
+			return false;
+		}
+		acc += ret;
 	}
-	else if (ret == 0){
-		close(_sockfd);
-		_sockfd = -1;
-		_is_connected = false;
-		free(buf2);
-		return false;
-	}
-	data = std::string(buf2, tmp_data_len+1);
+	data = std::string(buf2, tmp_data_len);
 	free(buf2);
 	return true;
 }
