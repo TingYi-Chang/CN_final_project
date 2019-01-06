@@ -360,7 +360,7 @@ void Page::_run_page_chat(){
 	fflush(stdout);
 	bool is_done = false;
 	UserLine line;
-	std::string carrage = "\r                                                                                                                                  \r";
+	std::string carrage = "\r                                   \r";
 	while(!is_done){
 		if(_connection.try_to_recv(resOp, resData)){
 			if(resOp == APP_CHAT){
@@ -385,6 +385,7 @@ void Page::_run_page_chat(){
 				printf("****** valid commands ******\n");
 				printf("\\help : to get command list.\n");
 				printf("\\back : to go back to the lobby.\n");
+				printf("\\quit : to quit the client program.\n");
 				printf("****************************\n");
 				printf("%s: ", _config.ID().c_str());
 				fflush(stdout);
@@ -396,6 +397,11 @@ void Page::_run_page_chat(){
 				if(resOp != APP_MAIN)
 					printf("[Warning]Server sent a strange op : %d\n", resOp);
 				_state = PAGE_LOBBY;
+				is_done = true;
+			}
+			else if(line.is_command && line.topic == "\\quit"){
+				printf("quit.\n");
+				_state = PAGE_EXIT;
 				is_done = true;
 			}
 			else if(!line.is_command){
@@ -466,7 +472,13 @@ void Page::_run_page_file(){
 				printf("\\download [filename] : download the required file.\n");
 				printf("\\send [username] [filename] : send file to another user.\n");
 				printf("\\back : to go back to the lobby.\n");
+				printf("\\quit : to quit the client program.\n");
 				printf("****************************\n");
+			}
+			else if(line.is_command && line.topic == "\\quit"){
+				printf("quit.\n");
+				_state = PAGE_EXIT;
+				is_done = true;
 			}
 			else if(line.is_command && line.topic == "\\back"){
 				printf("Go back to the lobby.\n");
@@ -590,6 +602,9 @@ void Page::_run_page_file(){
 							printf("[Warning]Server sent a strange op : %d\n", resOp);
 							_state = PAGE_LOBBY;
 							return;
+						}
+						else{
+							printf("[Server]%s\n", resData.c_str());
 						}
 					}
 				}

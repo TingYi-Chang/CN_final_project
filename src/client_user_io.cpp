@@ -76,6 +76,8 @@ void slave_getting_user_line(UserQueue &queue){
 		std::string input;
 		UserLine line;
 	    std::getline(std::cin, input);
+	    if(input == "")
+	    	continue;
 	    if(input[0] != '\\'){
 	        line.is_command = false;
 	        line.topic = input;
