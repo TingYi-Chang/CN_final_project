@@ -23,7 +23,8 @@ void _split_out_ID(std::string &ID, std::string &message, std::string &raw){
 }
 
 bool _write_into_file(std::string filename, std::string &data){
-	std::fstream file(filename, std::ios::out | std::ios::trunc | std::ios::binary);
+	std::string filepath = "client_data/download/" + filename;
+	std::fstream file(filepath, std::ios::out | std::ios::trunc | std::ios::binary);
 	if(file){
 		file.write(data.c_str(), data.size());
 		file.close();
